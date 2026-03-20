@@ -2,3 +2,6 @@ torch
 diffusers
 clean-fid
 importlib
+torch_fidelity
+torchmetrics[multimodal]
+transformers
