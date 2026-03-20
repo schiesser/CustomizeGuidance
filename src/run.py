@@ -1,5 +1,5 @@
 from pipeline import StableDiffusion3PipelineCustomGuidance
-from error import check_existing_generative_model, check_existing_guidance_method, check_model_downloaded_path
+from error import *
 import torch
 
 def run(model: str,
@@ -47,3 +47,28 @@ def run(model: str,
         )
 
     return result.images[0]
+
+def benchmark(model: str, 
+              guidance_type: str, 
+              model_path: str,
+              data_path: str, 
+              height: int = 512, 
+              width: int = 512,  
+              num_inference_steps: int = 28, 
+              guidance_scale: float = 7,
+              score_list: list[str] = ["FID"]
+              ):
+
+    check_model_downloaded_path(model_path)
+    check_existing_generative_model(model)
+    check_existing_guidance_method(guidance_type)
+    check_existing_data_path(data_path)
+    for score_name in score_list: check_existing_evaluation_metric(score_name)
+
+    # 1. read prompt in data
+    # 2. run with prompt
+    # 3. save data in a target folder
+    # 4. evaluate the score
+    # 5. create dict with the results
+    
+    return 
