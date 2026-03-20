@@ -6,6 +6,7 @@ from PIL import Image
 from pathlib import Path
 import numpy as np
 from transformers import BlipProcessor, BlipForImageTextRetrieval
+from error import check_existing_data_path, check_model_downloaded_path
 
 def compute_fid(generated_image_path: str,
                 real_image_path: str):
@@ -16,20 +17,26 @@ def compute_fid(generated_image_path: str,
         generated_image_path (str): Path to the directory containing generated images.
         real_image_path (str): Path to the directory containing real images.
     """
+    check_existing_data_path(generated_image_path)
+    check_existing_data_path(real_image_path)
+
     score = fid.compute_fid(generated_image_path, real_image_path)
     return score
 
 def compute_is(generated_image_path: str, 
-               seed:int = 13):
+               seed: int = 13):
     """
     Computes the Inception Score (IS) for generated images.
 
     Args:
         generated_image_path (str): Path to the directory containing generated images.
+        seed (int): Random seed for reproducibility.
     """
+    check_existing_data_path(generated_image_path)
+
     metrics = torch_fidelity.calculate_metrics(input1=generated_image_path, isc=True, isc_splits=10, rng_seed=seed)
     mean = metrics["inception_score_mean"]
-    std = metrics["inception_score_std"]
+    std  = metrics["inception_score_std"]
     return mean, std
 
 def compute_clip_score(generated_image_path: str, 
@@ -46,11 +53,18 @@ def compute_clip_score(generated_image_path: str,
         prompts (list[str]): List of prompts corresponding to the generated images.
         clip_model_path (str): Path to the CLIP model to be used for scoring.
     """
+    check_existing_data_path(generated_image_path)
+    check_model_downloaded_path(clip_model_path)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    clip = CLIPScore(model_name_or_path=clip_model_path)
-    clip.to(device)
-    
-    images = [torch.tensor(np.array(Image.open(p).convert("RGB"))).permute(2, 0, 1) for p in sorted(Path(generated_image_path).glob("*.png"))]
+    clip = CLIPScore(model_name_or_path=clip_model_path).to(device)
+
+    images = [
+        torch.tensor(np.array(Image.open(p).convert("RGB"))).permute(2, 0, 1)
+        for p in sorted(Path(generated_image_path).glob("*.png"))
+    ]
+    images = [img.to(device) for img in images]
+
     score = clip(images, prompts)
     return score.item()
 
@@ -63,21 +77,21 @@ def compute_blip_score(generated_image_path: str,
 
     Args:
         generated_image_path (str): Path to the directory containing generated images.
-        prompts (list[str]): List of prompts corresponding to the generated images. 
-
+        prompts (list[str]): List of prompts corresponding to the generated images.
     """
+    check_existing_data_path(generated_image_path)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     processor = BlipProcessor.from_pretrained("Salesforce/blip-itm-base-coco")
-    model = BlipForImageTextRetrieval.from_pretrained("Salesforce/blip-itm-base-coco")
-    model.to(device)
+    model = BlipForImageTextRetrieval.from_pretrained("Salesforce/blip-itm-base-coco").to(device)
     model.eval()
 
     scores = []
     image_paths = sorted(Path(generated_image_path).glob("*.png"))
 
     for path, prompt in zip(image_paths, prompts):
-        image = Image.open(path).convert("RGB")
+        image  = Image.open(path).convert("RGB")
         inputs = processor(image, prompt, return_tensors="pt").to(device)
 
         with torch.no_grad():

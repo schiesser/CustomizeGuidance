@@ -10,6 +10,8 @@ from diffusers.pipelines.stable_diffusion_3 import StableDiffusion3PipelineOutpu
 from diffusers.schedulers.scheduling_utils import calculate_shift, retrieve_timesteps
 from diffusers.utils import XLA_AVAILABLE, is_torch_xla_available 
 
+from error import check_existing_guidance_method
+
 xm = None
 if is_torch_xla_available():
     try:
@@ -24,14 +26,10 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
     def __init__(self, *args, guidance_type: str = "cfg_standard", **kwargs):
         super().__init__(*args, **kwargs)
 
+        check_existing_guidance_method(guidance_type)
+
         if guidance_type == "cfg_standard":
             self._apply_guidance = lambda uncond, cond, iter, time, nstep: constant_guidance(uncond, cond, self.guidance_scale)
-
-        else:
-            raise ValueError(
-                f"guidance_type '{guidance_type}' unknown. "
-                f"Available values : {implemented_guidance}."
-            )
 
         self.guidance_type = guidance_type
     

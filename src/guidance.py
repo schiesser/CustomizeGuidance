@@ -1,5 +1,3 @@
-implemented_guidance = ["constant_guidance"]
-
 def constant_guidance(noise_pred_uncond, noise_pred_text, guidance_scale):
     """
     Applies constant guidance to the noise prediction.
