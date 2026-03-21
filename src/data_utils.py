@@ -2,8 +2,6 @@ import pandas as pd
 import json
 import numpy as np
 
-path = r"C:\Users\Thibault Schiesser\OneDrive\Bureau\EPFL\Master Thesis\data\dataset\MS_COCO\annotations\captions_val2017.json"
-
 def extract_image_info(path: str, seed: int = 13) -> pd.DataFrame:
     """
     Create a DataFrame with 4 columns: 
