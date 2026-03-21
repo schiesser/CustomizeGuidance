@@ -61,7 +61,7 @@ def compute_clip_score(generated_image_path: str,
 
     images = [
         torch.tensor(np.array(Image.open(p).convert("RGB"))).permute(2, 0, 1)
-        for p in sorted(Path(generated_image_path).glob("*.png"))
+        for p in sorted(Path(generated_image_path).glob("*.jpg"))
     ]
     images = [img.to(device) for img in images]
 
@@ -69,7 +69,7 @@ def compute_clip_score(generated_image_path: str,
     return score.item()
 
 def compute_blip_score(generated_image_path: str, 
-                       prompts: list[str]):
+                       prompts: list[str], blip_model_path: str):
     """
     Computes the BLIP score between generated images and their corresponding prompts.
     This function used images that have been generated and saved in a folder.
@@ -80,15 +80,16 @@ def compute_blip_score(generated_image_path: str,
         prompts (list[str]): List of prompts corresponding to the generated images.
     """
     check_existing_data_path(generated_image_path)
+    check_model_downloaded_path(blip_model_path)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-itm-base-coco")
-    model = BlipForImageTextRetrieval.from_pretrained("Salesforce/blip-itm-base-coco").to(device)
+    processor = BlipProcessor.from_pretrained(blip_model_path)
+    model = BlipForImageTextRetrieval.from_pretrained(blip_model_path).to(device)
     model.eval()
 
     scores = []
-    image_paths = sorted(Path(generated_image_path).glob("*.png"))
+    image_paths = sorted(Path(generated_image_path).glob("*.jpg"))
 
     for path, prompt in zip(image_paths, prompts):
         image  = Image.open(path).convert("RGB")
