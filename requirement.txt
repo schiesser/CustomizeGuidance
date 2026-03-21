@@ -5,3 +5,6 @@ importlib
 torch_fidelity
 torchmetrics[multimodal]
 transformers
+tqdm
+pandas
+numpy
