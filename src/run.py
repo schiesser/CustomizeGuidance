@@ -30,12 +30,12 @@ def load_model(model: str, model_path: str, guidance_type: str):
 
     return sd3
 
-def generate_image(model,prompt: str, height: int = 512, width: int = 512, num_inference_steps: int = 28, guidance_scale: float = 7):
+def generate_image(model_pipeline, prompt: str, height: int = 512, width: int = 512, num_inference_steps: int = 28, guidance_scale: float = 7):
     """
     Generate an image using a loaded model pipeline.
 
     Args:
-        model: Loaded generative model pipeline.
+        model_pipeline: Loaded generative model pipeline.
         prompt (str): Text prompt for image generation.
         height (int): Height of the generated image in pixels.
         width (int): Width of the generated image in pixels.
@@ -45,7 +45,7 @@ def generate_image(model,prompt: str, height: int = 512, width: int = 512, num_i
     Returns:
         PIL.Image: Generated image.
     """
-    result = model(
+    result = model_pipeline(
         prompt=prompt,
         height=height,
         width=width,
@@ -132,7 +132,7 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
 
         pipeline_model = load_model(model, model_path, guidance_method)
 
-        for idx, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images, ...):
+        for idx, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images):
             generated_image = generate_image(pipeline_model, row['caption'], row['height'], row['width'], num_inference_steps, guidance_scale)
             generated_image.save(f"{path_generated_images}/{row['file_name']}")
         

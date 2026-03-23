@@ -1,6 +1,6 @@
 import argparse
-
 from src.run import run
+from plot import plot_image
 
 inference_parser = argparse.ArgumentParser(description='T2I.')
 
@@ -13,6 +13,7 @@ inference_parser.add_argument("--width", type=int, default=512)
 inference_parser.add_argument("--num_inference_steps", type=int, default=28)
 inference_parser.add_argument("--guidance_scale", type=float, default=7.0)
 inference_parser.add_argument("--output", type=str, default="output.png")
+inference_parser.add_argument("--plot", type=bool, default=False)
 
 args = inference_parser.parse_args()
 
@@ -28,4 +29,7 @@ image = run(
     )
 image.save(args.output)
 
-print(f"Image savec at: {args.output}.")
+if args.plot:
+    plot_image(image, title=f"Prompt: {args.prompt}")
+
+print(f"Image saved at: {args.output}.")
