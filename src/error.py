@@ -2,7 +2,7 @@ from pathlib import Path
 
 implemented_generative_model = ["SD3"]
 implemented_performance_metrics = ["FID", "CLIP", "IS", "BLIP"]
-implemented_guidance_methods = ["constant", "linear", "exponential"]
+implemented_guidance_methods = ["constant", "linear", "exponential", "APG"]
 REQUIRED_APG_PARAMETERS = {"momentum_value": (int, float),"norm_threshold": (int, float),
                            "eta": (int, float),"momentum_buffer": (type(None), object)}
 

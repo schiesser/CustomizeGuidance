@@ -38,22 +38,21 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
         self.guidance_type = guidance_type
 
         if guidance_type == "constant":
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: constant_guidance(uncond, cond, self.guidance_scale)
+            self._apply_guidance = lambda uncond, cond, time, latent: constant_guidance(uncond, cond, self.guidance_scale)
         elif guidance_type == "linear":
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: linear_guidance(uncond, cond, self.guidance_scale, iter, nstep)
+            self._apply_guidance = lambda uncond, cond, time, latent: linear_guidance(uncond, cond, self.guidance_scale, time)
         elif guidance_type == "exponential":
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: exponential_guidance(uncond, cond, self.guidance_scale, time, t_max)
+            self._apply_guidance = lambda uncond, cond, time, latent: exponential_guidance(uncond, cond, self.guidance_scale, time)
         elif guidance_type == "APG":
 
             check_APG_parameter(APG_parameter)
-
             momentum_value = APG_parameter.get("momentum_value", 0.9)
             momentum_buffer = MomentumBuffer(momentum_value=momentum_value)
             norm_threshold = APG_parameter.get("norm_threshold", 0.0)
             eta = APG_parameter.get("eta", 1.0)
 
             self.APG_parameters = {"momentum_buffer": momentum_buffer, "eta": eta, "norm_threshold": norm_threshold}   
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: adaptative_projected_guidance(uncond, cond, self.guidance_scale, time, latent, self.APG_parameters)
+            self._apply_guidance = lambda uncond, cond, time, latent: adaptative_projected_guidance(uncond, cond, self.guidance_scale, time, latent, self.APG_parameters)
     
     def __call__(
         self,
@@ -369,8 +368,9 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                     
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
 
-                    current_time = timesteps[0]- t
-                    noise_pred = self._apply_guidance(noise_pred_uncond, noise_pred_text, i, num_inference_steps, current_time, timesteps[0], latents)
+                    t_normalized = t/timesteps[0]
+                    noise_pred = self._apply_guidance(noise_pred_uncond, noise_pred_text,
+                                                      t_normalized, latents)
 
                     should_skip_layers = (
                         True

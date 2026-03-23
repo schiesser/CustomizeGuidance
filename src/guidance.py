@@ -8,7 +8,8 @@ def constant_guidance(noise_pred_uncond, noise_pred_text, guidance_scale):
     Args:
         noise_pred_uncond: The noise prediction for the unconditional input.
         noise_pred_text: The noise prediction for the text input.
-        guidance_scale: The scale of the guidance to apply.
+        guidance_scale: set so that integral from T to 0 of omega(t) = guidance_scale * T.
+        time: current time step, normalized in [0, 1]; noisy = 1, denoised = 0.
     
     Returns:
         The guided noise prediction.
@@ -16,46 +17,39 @@ def constant_guidance(noise_pred_uncond, noise_pred_text, guidance_scale):
     omega = guidance_scale
     return noise_pred_uncond + (noise_pred_text - noise_pred_uncond) * omega
 
-def linear_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, current_step, total_steps):
+def linear_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time):
     """ 
     Applies increasing linear guidance to the noise prediction.
-    It satisfies: 
-        integral from 0 to T of omega(t) = guidance_scale * T.
     
     Args:
         noise_pred_uncond: The noise prediction for the unconditional input.
         noise_pred_text: The noise prediction for the text input.
-        guidance_scale: The maximum scale of the guidance to apply.
-        current_step: The current inference step.
-        total_steps: The total number of inference steps.
+        guidance_scale: set so that integral from T to 0 of omega(t) = guidance_scale * T.
+        time: current time step, normalized in [0, 1]; noisy = 1, denoised = 0.
     
     Returns:
         The guided noise prediction.
     """
     # Calculate the linear scaling factor based on the current step
-    omega = 2 * (1 - current_step / total_steps) * guidance_scale
+    omega = 2 * (1-time) * guidance_scale
     return noise_pred_uncond + (noise_pred_text - noise_pred_uncond) * omega
 
-def exponential_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time, t_max):
+def exponential_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time):
     """ 
     Applies increasing exponential guidance to the noise prediction.
-    It satisfies: 
-        integral from 0 to T of omega(t) = guidance_scale * T.
     
     Args:
         noise_pred_uncond: The noise prediction for the unconditional input.
         noise_pred_text: The noise prediction for the text input.
-        guidance_scale: The maximum scale of the guidance to apply.
-        time: The current time step.
-        t_max: The maximum time step. 
-            time < t_max !
+        guidance_scale: set so that integral from T to 0 of omega(t) = guidance_scale * T.
+        time: current time step, normalized in [0, 1]; noisy = 1, denoised = 0.
     
     Returns:
         The guided noise prediction.
     """
     # Calculate the exponential scaling factor based on the current step
-    alpha = (guidance_scale*t_max + 1 - np.exp(t_max)) / (- t_max)
-    omega = alpha * (np.exp(time))
+    alpha = (guidance_scale / (np.exp(1) - 1))
+    omega = alpha * (np.exp(1-time))
     return noise_pred_uncond + (noise_pred_text - noise_pred_uncond) * omega
 
 
@@ -92,12 +86,12 @@ def adaptative_projected_guidance(noise_pred_uncond, noise_pred_text, guidance_s
         scale_factor = torch.minimum(ones, APG_parameters["norm_threshold"] / (diff_norm + 1e-8))
         diff = diff * scale_factor
 
-    diff_parallel, diff_orthogonal = _project(diff, noise_pred_uncond)
+    diff_parallel, diff_orthogonal = _project(diff, x0_uncond)
 
     normalized_update = diff_orthogonal+APG_parameters["eta"]*diff_parallel
-    pred_guided = noise_pred_text + (guidance_scale -1) * normalized_update
+    x0_guided = x0_text + (guidance_scale - 1) * normalized_update
 
-    _to_noise(pred_guided, latents, time)
+    pred_guided = _to_noise(x0_guided, latents, time)
 
     return pred_guided
 
