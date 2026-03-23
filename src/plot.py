@@ -30,4 +30,3 @@ def plot_image(image, title="Image", cmap=None, figsize=(8, 6)):
 
     plt.tight_layout()
     plt.show()
-

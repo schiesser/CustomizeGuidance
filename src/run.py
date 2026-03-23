@@ -3,7 +3,6 @@ from error import *
 import torch
 from data_utils import extract_image_info
 from performance import compute_fid, compute_is, compute_clip_score, compute_blip_score
-import pandas as pd
 from tqdm import tqdm
 
 def load_model(model: str, model_path: str, guidance_type: str):
