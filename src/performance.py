@@ -5,7 +5,7 @@ from torchmetrics.multimodal import CLIPScore
 from PIL import Image
 from pathlib import Path
 import numpy as np
-from transformers import BlipProcessor, BlipForImageTextRetrieval
+from transformers import BlipProcessor, BlipForImageTextRetrieval, CLIPModel, CLIPProcessor
 from error import check_existing_data_path, check_model_downloaded_path
 
 def compute_fid(generated_image_path: str,
@@ -44,6 +44,8 @@ def compute_clip_score(generated_image_path: str,
                        clip_model_path: str):
     """
     Computes the CLIP score between generated images and their corresponding prompts.
+    model: openai/clip-vit-base-patch32.
+
     This function used images that have been generated and saved in a folder.
     For better performance the score can be computed on images one by one after generation, 
     a step of open can be avoided. But here we favorize the "workflow".
@@ -57,21 +59,35 @@ def compute_clip_score(generated_image_path: str,
     check_model_downloaded_path(clip_model_path)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    clip = CLIPScore(model_name_or_path=clip_model_path).to(device)
 
-    images = [
-        torch.tensor(np.array(Image.open(p).convert("RGB"))).permute(2, 0, 1)
-        for p in sorted(Path(generated_image_path).glob("*.jpg"))
-    ]
-    images = [img.to(device) for img in images]
+    model = CLIPModel.from_pretrained(clip_model_path).to(device)
+    processor = CLIPProcessor.from_pretrained(clip_model_path)
+    model.eval()
 
-    score = clip(images, prompts)
-    return score.item()
+    image_paths = sorted(Path(generated_image_path).glob("*.jpg"))
+    scores = []
+
+    for path, prompt in zip(image_paths, prompts):
+        image = Image.open(path).convert("RGB")
+        inputs = processor(text=[prompt], images=image, return_tensors="pt", padding=True).to(device)
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            # cosine similarity between image and text embeddings
+            image_embeds = outputs.image_embeds / outputs.image_embeds.norm(dim=-1, keepdim=True)
+            text_embeds  = outputs.text_embeds  / outputs.text_embeds.norm(dim=-1, keepdim=True)
+            score = (image_embeds * text_embeds).sum(dim=-1).item()
+
+        scores.append(score)
+
+    mean_score = sum(scores) / len(scores)
+    return mean_score
 
 def compute_blip_score(generated_image_path: str, 
                        prompts: list[str], blip_model_path: str):
     """
     Computes the BLIP score between generated images and their corresponding prompts.
+    model: Salesforce/blip-itm-base-coco
     This function used images that have been generated and saved in a folder.
     (comments about performance are as for CLIP score)
 
