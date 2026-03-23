@@ -1,15 +1,15 @@
 import torch
-from typing import Callable, Any
 import importlib
-from ..guidance import *
+from typing import Callable, Any
 
 from diffusers import StableDiffusion3Pipeline
 from diffusers.image_processor import PipelineImageInput
-from diffusers.pipelines.pipeline_utils import PipelineCallback, MultiPipelineCallbacks
-from diffusers.pipelines.stable_diffusion_3 import StableDiffusion3PipelineOutput
-from diffusers.schedulers.scheduling_utils import calculate_shift, retrieve_timesteps
-from diffusers.utils import XLA_AVAILABLE, is_torch_xla_available 
+from diffusers.callbacks import PipelineCallback, MultiPipelineCallbacks
+from diffusers.pipelines.stable_diffusion_3.pipeline_output import StableDiffusion3PipelineOutput
+from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import calculate_shift, retrieve_timesteps
+from diffusers.utils import is_torch_xla_available
 
+from ..guidance import *
 from error import check_existing_guidance_method
 
 xm = None
@@ -29,8 +29,11 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
         check_existing_guidance_method(guidance_type)
 
         if guidance_type == "cfg_standard":
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep: constant_guidance(uncond, cond, self.guidance_scale)
-
+            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max: constant_guidance(uncond, cond, self.guidance_scale)
+        elif guidance_type == "cfg_linear":
+            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max: linear_guidance(uncond, cond, self.guidance_scale, iter, nstep)
+        elif guidance_type == "cfg_exponential":
+            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max: exponential_guidance(uncond, cond, self.guidance_scale, time, t_max)
         self.guidance_type = guidance_type
     
     def __call__(
@@ -347,7 +350,8 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                     
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
 
-                    noise_pred = self._apply_guidance(noise_pred_uncond, noise_pred_text, i, t, num_inference_steps)
+                    current_time = timesteps[0]- t
+                    noise_pred = self._apply_guidance(noise_pred_uncond, noise_pred_text, i, num_inference_steps, current_time, timesteps[0])
 
                     should_skip_layers = (
                         True
