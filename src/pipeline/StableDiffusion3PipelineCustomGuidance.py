@@ -10,7 +10,7 @@ from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import c
 from diffusers.utils import is_torch_xla_available
 
 from ..guidance import *
-from error import check_existing_guidance_method
+from error import check_existing_guidance_method, check_APG_parameter
 
 xm = None
 if is_torch_xla_available():
@@ -21,20 +21,39 @@ if is_torch_xla_available():
 
 XLA_AVAILABLE = xm is not None
 
+class MomentumBuffer:
+    def __init__(self, momentum: float):
+        self.momentum = momentum
+        self.running_avg = 0
+    def update(self, new_value):
+        new_avg = self.momentum * self.running_avg
+        self.running_avg = new_value + new_avg
+
 class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
-    def __init__(self, *args, guidance_type: str = "cfg_standard", **kwargs):
+    def __init__(self, *args, guidance_type: str = "constant", APG_parameter: dict = None, **kwargs):
         super().__init__(*args, **kwargs)
 
         check_existing_guidance_method(guidance_type)
-
-        if guidance_type == "cfg_standard":
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max: constant_guidance(uncond, cond, self.guidance_scale)
-        elif guidance_type == "cfg_linear":
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max: linear_guidance(uncond, cond, self.guidance_scale, iter, nstep)
-        elif guidance_type == "cfg_exponential":
-            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max: exponential_guidance(uncond, cond, self.guidance_scale, time, t_max)
         self.guidance_type = guidance_type
+
+        if guidance_type == "constant":
+            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: constant_guidance(uncond, cond, self.guidance_scale)
+        elif guidance_type == "linear":
+            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: linear_guidance(uncond, cond, self.guidance_scale, iter, nstep)
+        elif guidance_type == "exponential":
+            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: exponential_guidance(uncond, cond, self.guidance_scale, time, t_max)
+        elif guidance_type == "APG":
+
+            check_APG_parameter(APG_parameter)
+
+            momentum_value = APG_parameter.get("momentum_value", 0.9)
+            momentum_buffer = MomentumBuffer(momentum_value=momentum_value)
+            norm_threshold = APG_parameter.get("norm_threshold", 0.0)
+            eta = APG_parameter.get("eta", 1.0)
+
+            self.APG_parameters = {"momentum_buffer": momentum_buffer, "eta": eta, "norm_threshold": norm_threshold}   
+            self._apply_guidance = lambda uncond, cond, iter, time, nstep, t_max, latent: adaptative_projected_guidance(uncond, cond, self.guidance_scale, time, latent, self.APG_parameters)
     
     def __call__(
         self,
@@ -351,7 +370,7 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
 
                     current_time = timesteps[0]- t
-                    noise_pred = self._apply_guidance(noise_pred_uncond, noise_pred_text, i, num_inference_steps, current_time, timesteps[0])
+                    noise_pred = self._apply_guidance(noise_pred_uncond, noise_pred_text, i, num_inference_steps, current_time, timesteps[0], latents)
 
                     should_skip_layers = (
                         True
