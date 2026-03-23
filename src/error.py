@@ -31,13 +31,56 @@ def check_existing_data_path(data_folder_path: str):
     if not Path(data_folder_path).exists():
         raise FileNotFoundError(f"No data folder found at: '{data_folder_path}'.")
     
-def check_APG_parameter(APG_parameter: dict):
-    """Raises ValueError if the APG parameters are missing or of wrong type."""
-    if not isinstance(APG_parameter, dict):
-        raise ValueError(f"APG_parameter should be a dictionary. Got {type(APG_parameter)} instead.")
+def check_guidance_parameters(guidance_type: str, guidance_params: dict | None):
+    """
+    Validate guidance parameters depending on the selected guidance type.
+
+    For APG and rectified_pp, ensures:
+        - guidance_params is provided
+        - required keys are present
+        - values have correct types
+
+    Raises:
+        ValueError: if parameters are missing or invalid
+    """
+
+    if guidance_type in ["constant", "linear", "exponential"]:
+        return
+
+    # Ensure dict is provided
+    if guidance_params is None:
+        raise ValueError(f"`guidance_params` must be provided for guidance_type='{guidance_type}'")
+
+    if not isinstance(guidance_params, dict):
+        raise TypeError(f"`guidance_params` must be a dict, got {type(guidance_params)}")
+
+    # APG
+    if guidance_type == "APG":
+        required_keys = {"momentum_value": float, "eta": float, "norm_threshold": float}
+
+        for key, expected_type in required_keys.items():
+            if key not in guidance_params:
+                raise ValueError(f"Missing key '{key}' in APG parameters")
+
+            if not isinstance(guidance_params[key], expected_type):
+                raise TypeError(f"APG parameter '{key}' must be of type {expected_type}, got {type(guidance_params[key])}")
+
+    # Rectified++
+    elif guidance_type == "rectified_pp":
+        required_keys = {"alpha_mode": str}
+
+        optional_keys = {"eta": float,"dt_scale": float}
+
+        for key, expected_type in required_keys.items():
+            if key not in guidance_params:
+                raise ValueError(f"Missing key '{key}' in rectified_pp parameters")
+
+            if not isinstance(guidance_params[key], expected_type):
+                raise TypeError(f"rectified_pp parameter '{key}' must be of type {expected_type}, got {type(guidance_params[key])}")
+            
+        for key, expected_type in optional_keys.items():
+            if key in guidance_params and not isinstance(guidance_params[key], expected_type):
+                raise TypeError(f"rectified_pp parameter '{key}' must be of type {expected_type}, got {type(guidance_params[key])}")
+
+
     
-    for key, expected_types in REQUIRED_APG_PARAMETERS.items():
-        if key not in APG_parameter:
-            raise ValueError(f"APG_parameter is missing required key: '{key}'.")
-        if not isinstance(APG_parameter[key], expected_types):
-            raise ValueError(f"APG_parameter['{key}'] should be of type {expected_types}. " f"Got {type(APG_parameter[key])} instead.")

@@ -9,8 +9,8 @@ from diffusers.pipelines.stable_diffusion_3.pipeline_output import StableDiffusi
 from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import calculate_shift, retrieve_timesteps
 from diffusers.utils import is_torch_xla_available
 
-from ..guidance import *
-from error import check_existing_guidance_method, check_APG_parameter
+from ..guidance import build_guidance_method, GuidanceContext
+from error import check_existing_guidance_method, check_guidance_parameters
 
 xm = None
 if is_torch_xla_available():
@@ -21,72 +21,38 @@ if is_torch_xla_available():
 
 XLA_AVAILABLE = xm is not None
 
-class MomentumBuffer:
-    def __init__(self, momentum: float):
-        self.momentum = momentum
-        self.running_avg = 0
-    def update(self, new_value):
-        new_avg = self.momentum * self.running_avg
-        self.running_avg = new_value + new_avg
-
 class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
-    def __init__(self, *args, guidance_type: str = "constant", APG_parameter: dict = None, **kwargs):
+    def __init__(self, *args, guidance_type: str = "constant", guidance_params: dict | None = None, **kwargs):
         super().__init__(*args, **kwargs)
 
         check_existing_guidance_method(guidance_type)
+        check_guidance_parameters(guidance_type, guidance_params)
         self.guidance_type = guidance_type
+        self.guidance_method = build_guidance_method(guidance_type, guidance_params)
 
-        if guidance_type == "constant":
-            self._apply_guidance = lambda uncond, cond, time, latent: constant_guidance(uncond, cond, self.guidance_scale)
-        elif guidance_type == "linear":
-            self._apply_guidance = lambda uncond, cond, time, latent: linear_guidance(uncond, cond, self.guidance_scale, time)
-        elif guidance_type == "exponential":
-            self._apply_guidance = lambda uncond, cond, time, latent: exponential_guidance(uncond, cond, self.guidance_scale, time)
-        elif guidance_type == "APG":
+    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor,
+                       prompt_embeds: torch.Tensor, pooled_prompt_embeds: torch.Tensor,
+                       do_cfg: bool, skip_layers: list[int] | None = None ):
 
-            check_APG_parameter(APG_parameter)
-            momentum_value = APG_parameter.get("momentum_value", 0.9)
-            momentum_buffer = MomentumBuffer(momentum_value=momentum_value)
-            norm_threshold = APG_parameter.get("norm_threshold", 0.0)
-            eta = APG_parameter.get("eta", 1.0)
+        latent_model_input = torch.cat([latents] * 2) if do_cfg else latents
+        timestep = t.expand(latent_model_input.shape[0])
 
-            self.APG_parameters = {"momentum_buffer": momentum_buffer, "eta": eta, "norm_threshold": norm_threshold}   
-            self._apply_guidance = lambda uncond, cond, time, latent: adaptative_projected_guidance(uncond, cond, self.guidance_scale, time, latent, self.APG_parameters)
+        pred = self.transformer(
+            hidden_states=latent_model_input,
+            timestep=timestep,
+            encoder_hidden_states=prompt_embeds,
+            pooled_projections=pooled_prompt_embeds,
+            joint_attention_kwargs=self.joint_attention_kwargs,
+            return_dict=False,
+            skip_layers=skip_layers,
+        )[0]
 
-        elif guidance_type == "rectified_pp":
-            # check_rectified_pp_parameters(rectified_parameters)
-            self.rectified_pp_parameters = 0
+        if do_cfg:
+            pred_uncond, pred_cond = pred.chunk(2)
+            return pred_uncond, pred_cond
 
-        """
-        def _denoising_step(self, latents, t, dt, timestep, prompt_embeds, pooled_prompt_embeds, alpha_t):
-            v_cond = self.transformer(
-                hidden_states=latents,
-                timestep=timestep,
-                encoder_hidden_states=prompt_embeds[1:],
-                pooled_projections=pooled_prompt_embeds[1:],
-                joint_attention_kwargs=self.joint_attention_kwargs,
-                return_dict=False,
-            )[0]
-
-            x_mid = latents + dt * v_cond / 2
-
-            t_mid = (t - dt / 2).expand(latents.shape[0])
-
-            noise_pred = self.transformer(
-                hidden_states=x_mid,
-                timestep=t_mid,
-                encoder_hidden_states=prompt_embeds,
-                pooled_projections=pooled_prompt_embeds,
-                joint_attention_kwargs=self.joint_attention_kwargs,
-                return_dict=False,
-            )[0]
-            
-            v_uncond_mid, v_cond_mid = noise_pred.chunk(2)
-
-            v_guided = v_cond + alpha_t * (v_cond_mid - v_uncond_mid)
-
-            return v_guided"""
+        return pred
 
     def __call__(
         self,
@@ -311,10 +277,10 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
             lora_scale=lora_scale,
         )
 
+        original_prompt_embeds = prompt_embeds
+        original_pooled_prompt_embeds = pooled_prompt_embeds
+
         if self.do_classifier_free_guidance:
-            if skip_guidance_layers is not None:
-                original_prompt_embeds = prompt_embeds
-                original_pooled_prompt_embeds = pooled_prompt_embeds
             prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
             pooled_prompt_embeds = torch.cat([negative_pooled_prompt_embeds, pooled_prompt_embeds], dim=0)
 
@@ -383,50 +349,55 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                 if self.interrupt:
                     continue
 
-                # expand the latents if we are doing classifier free guidance
-                latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
-                # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
-                timestep = t.expand(latent_model_input.shape[0])
+                # timestep broadcasted to the batch size of the current latents
+                timestep = t.expand(latents.shape[0])
 
-                noise_pred = self.transformer(
-                    hidden_states=latent_model_input,
+                # build per-step guidance context
+                ctx = GuidanceContext(
+                    pipeline=self,
+                    latents=latents,
+                    t=t,
                     timestep=timestep,
-                    encoder_hidden_states=prompt_embeds,
-                    pooled_projections=pooled_prompt_embeds,
+                    step_index=i,
+                    timesteps=timesteps,
+                    prompt_embeds=prompt_embeds,
+                    pooled_prompt_embeds=pooled_prompt_embeds,
+                    original_prompt_embeds=original_prompt_embeds,
+                    original_pooled_prompt_embeds=original_pooled_prompt_embeds,
+                    guidance_scale=self.guidance_scale,
                     joint_attention_kwargs=self.joint_attention_kwargs,
-                    return_dict=False,
-                )[0]
+                    do_classifier_free_guidance=self.do_classifier_free_guidance,
+                )
 
-                # perform guidance
+                # main prediction
                 if self.do_classifier_free_guidance:
-                    
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = self.guidance_method.predict_velocity_field(ctx)
+                else:
+                    noise_pred = self._predict_model(latents=latents, t=t, 
+                                                     prompt_embeds=original_prompt_embeds, 
+                                                     pooled_prompt_embeds=original_pooled_prompt_embeds, 
+                                                     do_cfg=False)
 
-                    t_normalized = t/timesteps[0]
-                    noise_pred = self._apply_guidance(noise_pred_uncond, noise_pred_text,
-                                                      t_normalized, latents)
-
+                # optional skip-layer correction
+                if self.do_classifier_free_guidance:
                     should_skip_layers = (
                         True
                         if i > num_inference_steps * skip_layer_guidance_start
                         and i < num_inference_steps * skip_layer_guidance_stop
                         else False
                     )
+
                     if skip_guidance_layers is not None and should_skip_layers:
-                        timestep = t.expand(latents.shape[0])
-                        latent_model_input = latents
-                        noise_pred_skip_layers = self.transformer(
-                            hidden_states=latent_model_input,
-                            timestep=timestep,
-                            encoder_hidden_states=original_prompt_embeds,
-                            pooled_projections=original_pooled_prompt_embeds,
-                            joint_attention_kwargs=self.joint_attention_kwargs,
-                            return_dict=False,
-                            skip_layers=skip_guidance_layers,
-                        )[0]
-                        noise_pred = (
-                            noise_pred + (noise_pred_text - noise_pred_skip_layers) * self._skip_layer_guidance_scale
-                        )
+                        noise_pred_skip_layers = self._predict_model(latents=latents, t=t, prompt_embeds=original_prompt_embeds, 
+                                                                     pooled_prompt_embeds=original_pooled_prompt_embeds, 
+                                                                     do_cfg=False, skip_layers=skip_guidance_layers)
+
+                        _, pred_cond = self._predict_model(latents=latents, t=t,
+                                                           prompt_embeds=prompt_embeds,
+                                                           pooled_prompt_embeds=pooled_prompt_embeds,
+                                                           do_cfg=True)
+
+                        noise_pred = (noise_pred + (pred_cond - noise_pred_skip_layers) * self._skip_layer_guidance_scale)
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents_dtype = latents.dtype
@@ -434,7 +405,8 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
                 if latents.dtype != latents_dtype:
                     if torch.backends.mps.is_available():
-                        # some platforms (eg. apple mps) misbehave due to a pytorch bug: https://github.com/pytorch/pytorch/pull/99272
+                        # some platforms (eg. apple mps) misbehave due to a pytorch bug:
+                        # https://github.com/pytorch/pytorch/pull/99272
                         latents = latents.to(latents_dtype)
 
                 if callback_on_step_end is not None:
