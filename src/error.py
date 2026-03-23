@@ -2,7 +2,9 @@ from pathlib import Path
 
 implemented_generative_model = ["SD3"]
 implemented_performance_metrics = ["FID", "CLIP", "IS", "BLIP"]
-implemented_guidance_methods = ["constant_guidance"]
+implemented_guidance_methods = ["constant", "linear", "exponential"]
+REQUIRED_APG_PARAMETERS = {"momentum_value": (int, float),"norm_threshold": (int, float),
+                           "eta": (int, float),"momentum_buffer": (type(None), object)}
 
 def check_existing_generative_model(model_name: str):
     """Raises ValueError if the generative model is not implemented."""
@@ -28,3 +30,14 @@ def check_existing_data_path(data_folder_path: str):
     """Raises FileNotFoundError if the data folder path does not exist."""
     if not Path(data_folder_path).exists():
         raise FileNotFoundError(f"No data folder found at: '{data_folder_path}'.")
+    
+def check_APG_parameter(APG_parameter: dict):
+    """Raises ValueError if the APG parameters are missing or of wrong type."""
+    if not isinstance(APG_parameter, dict):
+        raise ValueError(f"APG_parameter should be a dictionary. Got {type(APG_parameter)} instead.")
+    
+    for key, expected_types in REQUIRED_APG_PARAMETERS.items():
+        if key not in APG_parameter:
+            raise ValueError(f"APG_parameter is missing required key: '{key}'.")
+        if not isinstance(APG_parameter[key], expected_types):
+            raise ValueError(f"APG_parameter['{key}'] should be of type {expected_types}. " f"Got {type(APG_parameter[key])} instead.")
