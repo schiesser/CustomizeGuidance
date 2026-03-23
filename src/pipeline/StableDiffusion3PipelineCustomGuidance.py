@@ -53,7 +53,41 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
             self.APG_parameters = {"momentum_buffer": momentum_buffer, "eta": eta, "norm_threshold": norm_threshold}   
             self._apply_guidance = lambda uncond, cond, time, latent: adaptative_projected_guidance(uncond, cond, self.guidance_scale, time, latent, self.APG_parameters)
-    
+
+        elif guidance_type == "rectified_pp":
+            # check_rectified_pp_parameters(rectified_parameters)
+            self.rectified_pp_parameters = 0
+
+        """
+        def _denoising_step(self, latents, t, dt, timestep, prompt_embeds, pooled_prompt_embeds, alpha_t):
+            v_cond = self.transformer(
+                hidden_states=latents,
+                timestep=timestep,
+                encoder_hidden_states=prompt_embeds[1:],
+                pooled_projections=pooled_prompt_embeds[1:],
+                joint_attention_kwargs=self.joint_attention_kwargs,
+                return_dict=False,
+            )[0]
+
+            x_mid = latents + dt * v_cond / 2
+
+            t_mid = (t - dt / 2).expand(latents.shape[0])
+
+            noise_pred = self.transformer(
+                hidden_states=x_mid,
+                timestep=t_mid,
+                encoder_hidden_states=prompt_embeds,
+                pooled_projections=pooled_prompt_embeds,
+                joint_attention_kwargs=self.joint_attention_kwargs,
+                return_dict=False,
+            )[0]
+            
+            v_uncond_mid, v_cond_mid = noise_pred.chunk(2)
+
+            v_guided = v_cond + alpha_t * (v_cond_mid - v_uncond_mid)
+
+            return v_guided"""
+
     def __call__(
         self,
         prompt: str | list[str] = None,

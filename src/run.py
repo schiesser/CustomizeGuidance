@@ -114,7 +114,7 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
     # Validate inputs
     check_model_downloaded_path(model_path)
     check_existing_generative_model(model)
-    for guidance_type in guidance_types: check_existing_guidance_method(guidance_method)
+    for guidance_method in guidance_types: check_existing_guidance_method(guidance_method)
     check_existing_data_path(data_annotations_path)
     check_existing_data_path(data_images_path)
     for score_name in score_list: check_existing_evaluation_metric(score_name)

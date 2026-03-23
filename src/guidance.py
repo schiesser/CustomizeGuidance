@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 
+from guidance_utils import _project, _to_denoise, _to_noise
+
 def constant_guidance(noise_pred_uncond, noise_pred_text, guidance_scale):
     """
     Applies constant guidance to the noise prediction.
@@ -53,7 +55,7 @@ def exponential_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, tim
     return noise_pred_uncond + (noise_pred_text - noise_pred_uncond) * omega
 
 
-def adaptative_projected_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time, APG_parameters, latents):
+def adaptative_projected_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time, latents, APG_parameters):
     """
     Implements the Adaptative Projected Guidance (APG) method for guiding the noise prediction in a diffusion model.
 
@@ -95,54 +97,8 @@ def adaptative_projected_guidance(noise_pred_uncond, noise_pred_text, guidance_s
 
     return pred_guided
 
-def _project(v0, v1):
+def rectified_pp_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time, latents, rectified_parameters):
     """
-    Projects v0 onto v1 and computes the orthogonal and parallel components.
-
-    Args:
-        v0: The vector to be projected, shape (B, C, H, W)
-        v1: The vector to project onto, shape (B, C, H, W)
-
-    Returns:
-        v0_parallel: The component of v0 parallel to v1, shape (B, C, H, W)
-        v0_orthogonal: The component of v0 orthogonal to v1, shape (B, C, H, W)
+    Placeholder for the Rectified++ guidance method.
     """
-    dtype = v0.dtype
-    v0, v1 = v0.double(), v1.double()
-    v1 = torch.nn.functional.normalize(v1, dim = [-1,-2,-3])
-    v0_parallel = (v0 * v1).sum(dim = [-1,-2,-3], keepdim=True) * v1
-    v0_orthogonal = v0 - v0_parallel
-    return v0_parallel.to(dtype), v0_orthogonal.to(dtype)
-
-def _to_denoise(v_t, x_t, t):
-    """
-    Estimate denoised image from current noisy latents and velocity prediction.
-    Flow matching : x0 = x_t - t * v_t
-    
-    Args:
-        v_t : velocity prediction (noise_pred), shape (B, C, H, W)
-        x_t : current noisy latents, shape (B, C, H, W)
-        t   : current timestep scalar ∈ [0, 1]
-    
-    Returns:
-        x0 : denoised estimate, shape (B, C, H, W)
-    """
-    return x_t - t * v_t
-
-
-def _to_noise(x0, x_t, t):
-    """
-    Estimate noise from current noisy latents and denoised estimate.
-    Flow matching : v_t = (x_t - x0) / t
-    
-    Args:
-        x0  : denoised estimate, shape (B, C, H, W)
-        x_t : current noisy latents, shape (B, C, H, W)
-        t   : current timestep scalar ∈ [0, 1]
-
-    Returns:
-        v_t : velocity prediction (noise_pred), shape (B, C, H, W)
-    """
-    if t < 1e-6:
-        return x0
-    return (x_t - x0) / t
+    return NotImplementedError("Rectified++ guidance method is not implemented yet.")
