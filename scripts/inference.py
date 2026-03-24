@@ -1,11 +1,17 @@
 import argparse
+import json
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 from src.run import run
-from plot import plot_image
+from src.plot import plot_image
 
 inference_parser = argparse.ArgumentParser(description='T2I.')
 
 inference_parser.add_argument("--model", type=str, default="SD3")
-inference_parser.add_argument("--guidance_type", type=str, default="cfg_standard")
+inference_parser.add_argument("--guidance_type", type=str, default="constant")
 inference_parser.add_argument("--model_path", type=str, required=True)
 inference_parser.add_argument("--prompt", type=str, required=True)
 inference_parser.add_argument("--height", type=int, default=512)
@@ -14,6 +20,7 @@ inference_parser.add_argument("--num_inference_steps", type=int, default=28)
 inference_parser.add_argument("--guidance_scale", type=float, default=7.0)
 inference_parser.add_argument("--output", type=str, default="output.png")
 inference_parser.add_argument("--plot", type=bool, default=False)
+inference_parser.add_argument("--guidance_parameters", type=json.loads, default=None)
 
 args = inference_parser.parse_args()
 
@@ -26,6 +33,7 @@ image = run(
     width=args.width,
     num_inference_steps=args.num_inference_steps,
     guidance_scale=args.guidance_scale,
+    guidance_params=args.guidance_parameters
     )
 image.save(args.output)
 

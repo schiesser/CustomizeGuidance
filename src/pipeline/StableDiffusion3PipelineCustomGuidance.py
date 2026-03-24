@@ -10,7 +10,7 @@ from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import c
 from diffusers.utils import is_torch_xla_available
 
 from ..guidance import build_guidance_method, GuidanceContext
-from error import check_existing_guidance_method, check_guidance_parameters
+from ..error import check_existing_guidance_method, check_guidance_parameters
 
 xm = None
 if is_torch_xla_available():
@@ -23,13 +23,36 @@ XLA_AVAILABLE = xm is not None
 
 class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
-    def __init__(self, *args, guidance_type: str = "constant", guidance_params: dict | None = None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,transformer,scheduler,vae,text_encoder,tokenizer,text_encoder_2,tokenizer_2, text_encoder_3,tokenizer_3,image_encoder=None,feature_extractor=None):
+        super().__init__(
+        transformer=transformer,
+        scheduler=scheduler,
+        vae=vae,
+        text_encoder=text_encoder,
+        tokenizer=tokenizer,
+        text_encoder_2=text_encoder_2,
+        tokenizer_2=tokenizer_2,
+        text_encoder_3=text_encoder_3,
+        tokenizer_3=tokenizer_3,
+        image_encoder=image_encoder,
+        feature_extractor=feature_extractor)
+        
+        self.guidance_type = "constant"
+        self.guidance_method = None
+        
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
+        guidance_type = kwargs.pop("guidance_type", "constant")
+        guidance_params = kwargs.pop("guidance_params", None)
+        
+        pipeline = StableDiffusion3Pipeline.from_pretrained(pretrained_model_name_or_path, **kwargs)
 
-        check_existing_guidance_method(guidance_type)
-        check_guidance_parameters(guidance_type, guidance_params)
-        self.guidance_type = guidance_type
-        self.guidance_method = build_guidance_method(guidance_type, guidance_params)
+        pipeline.__class__ = cls
+        
+        pipeline.guidance_type = guidance_type
+        pipeline.guidance_method = build_guidance_method(guidance_type, guidance_params)
+        
+        return pipeline
 
     def _predict_model(self, latents: torch.Tensor, t: torch.Tensor,
                        prompt_embeds: torch.Tensor, pooled_prompt_embeds: torch.Tensor,

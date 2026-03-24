@@ -6,7 +6,7 @@ from PIL import Image
 from pathlib import Path
 import numpy as np
 from transformers import BlipProcessor, BlipForImageTextRetrieval, CLIPModel, CLIPProcessor
-from error import check_existing_data_path, check_model_downloaded_path
+from .error import check_existing_data_path, check_model_downloaded_path
 
 def compute_fid(generated_image_path: str,
                 real_image_path: str):

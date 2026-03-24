@@ -1,11 +1,11 @@
-from pipeline import StableDiffusion3PipelineCustomGuidance
-from error import *
+from .pipeline import StableDiffusion3PipelineCustomGuidance
+from .error import *
 import torch
-from data_utils import extract_image_info
-from performance import compute_fid, compute_is, compute_clip_score, compute_blip_score
+from .data_utils import extract_image_info
+from .performance import compute_fid, compute_is, compute_clip_score, compute_blip_score
 from tqdm import tqdm
 
-def load_model(model: str, model_path: str, guidance_type: str):
+def load_model(model: str, model_path: str, guidance_type: str, guidance_params: dict = None):
     """
     Load a generative model with a given guidance method.
 
@@ -24,7 +24,7 @@ def load_model(model: str, model_path: str, guidance_type: str):
     check_existing_guidance_method(guidance_type)
 
     if model == "SD3":
-        sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, guidance_type=guidance_type)
+        sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, guidance_type=guidance_type, guidance_params=guidance_params)
         sd3.to(torch_device)
 
     return sd3
@@ -62,7 +62,8 @@ def run(model: str,
         height: int = 512,
         width: int = 512,
         num_inference_steps: int = 28,
-        guidance_scale: float = 7
+        guidance_scale: float = 7,
+        guidance_params: dict = None
         ):
     """
     Run inference on a generative model with a given guidance method.
@@ -80,7 +81,7 @@ def run(model: str,
     Returns:
         PIL.Image: Generated image.
     """
-    model = load_model(model, model_path, guidance_type)
+    model = load_model(model, model_path, guidance_type, guidance_params=guidance_params)
 
     generated_image = generate_image(model, prompt, height, width, num_inference_steps, guidance_scale)
 
