@@ -5,6 +5,7 @@
 
 DockerFile_template
 template.job
+Dockerfile
 
 # User-specific files
 *.rsuser
