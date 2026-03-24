@@ -25,6 +25,7 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
 
     if model == "SD3":
         sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, guidance_type=guidance_type, guidance_params=guidance_params)
+        sd3.configure_guidance(guidance_type=guidance_type, guidance_params=guidance_params)
         sd3.to(torch_device)
 
     return sd3

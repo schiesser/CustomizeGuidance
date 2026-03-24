@@ -23,53 +23,50 @@ XLA_AVAILABLE = xm is not None
 
 class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
-    def __init__(self,transformer,scheduler,vae,text_encoder,tokenizer,text_encoder_2,tokenizer_2, text_encoder_3,tokenizer_3,image_encoder=None,feature_extractor=None):
-        super().__init__(
-        transformer=transformer,
-        scheduler=scheduler,
-        vae=vae,
-        text_encoder=text_encoder,
-        tokenizer=tokenizer,
-        text_encoder_2=text_encoder_2,
-        tokenizer_2=tokenizer_2,
-        text_encoder_3=text_encoder_3,
-        tokenizer_3=tokenizer_3,
-        image_encoder=image_encoder,
-        feature_extractor=feature_extractor)
+    def __init__(self, transformer, scheduler, vae, text_encoder, tokenizer, text_encoder_2, tokenizer_2, text_encoder_3, tokenizer_3, image_encoder=None, feature_extractor=None):
+        super().__init__(transformer=transformer, scheduler=scheduler, 
+                         vae=vae, text_encoder=text_encoder, 
+                         tokenizer=tokenizer, 
+                         text_encoder_2=text_encoder_2, 
+                         tokenizer_2=tokenizer_2, 
+                         text_encoder_3=text_encoder_3, 
+                         tokenizer_3=tokenizer_3, 
+                         image_encoder=image_encoder, 
+                         feature_extractor=feature_extractor)
         
+        # set default value
         self.guidance_type = "constant"
         self.guidance_method = None
+        self.guidance_method_initialized = False
         
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
-        guidance_type = kwargs.pop("guidance_type", "constant")
-        guidance_params = kwargs.pop("guidance_params", None)
-        
-        pipeline = StableDiffusion3Pipeline.from_pretrained(pretrained_model_name_or_path, **kwargs)
+    def configure_guidance(self, guidance_type: str = "constant", guidance_params: dict | None = None):
+        """
+        Configure the guidance method chosen.
 
-        pipeline.__class__ = cls
-        
-        pipeline.guidance_type = guidance_type
-        pipeline.guidance_method = build_guidance_method(guidance_type, guidance_params)
-        
-        return pipeline
+        Args:
+            guidance_type (str): Name of the guidance method.
+            guidance_params (dict, optional): Parameters specific to the chosen guidance method.
+        """
+        check_existing_guidance_method(guidance_type)
+        check_guidance_parameters(guidance_type, guidance_params)
 
-    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor,
-                       prompt_embeds: torch.Tensor, pooled_prompt_embeds: torch.Tensor,
-                       do_cfg: bool, skip_layers: list[int] | None = None ):
+        self.guidance_type = guidance_type
+        self.guidance_method = build_guidance_method(guidance_type, guidance_params)
+
+        self.guidance_method_initialized = True
+
+        return
+
+    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, prompt_embeds: torch.Tensor, 
+                       pooled_prompt_embeds: torch.Tensor, do_cfg: bool, skip_layers: list[int] | None = None ):
 
         latent_model_input = torch.cat([latents] * 2) if do_cfg else latents
         timestep = t.expand(latent_model_input.shape[0])
 
-        pred = self.transformer(
-            hidden_states=latent_model_input,
-            timestep=timestep,
-            encoder_hidden_states=prompt_embeds,
-            pooled_projections=pooled_prompt_embeds,
-            joint_attention_kwargs=self.joint_attention_kwargs,
-            return_dict=False,
-            skip_layers=skip_layers,
-        )[0]
+        pred = self.transformer(hidden_states=latent_model_input, timestep=timestep, 
+                                encoder_hidden_states=prompt_embeds, pooled_projections=pooled_prompt_embeds, 
+                                joint_attention_kwargs=self.joint_attention_kwargs, return_dict=False, 
+                                skip_layers=skip_layers)[0]
 
         if do_cfg:
             pred_uncond, pred_cond = pred.chunk(2)
@@ -232,6 +229,8 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
             [`~pipelines.stable_diffusion_3.StableDiffusion3PipelineOutput`] if `return_dict` is True, otherwise a
             `tuple`. When returning a tuple, the first element is a list with the generated images.
         """
+        if self.guidance_method_initialized is False:
+            raise ValueError(f"Guidance method not initialized. Please call `configure_guidance` with the desired guidance method and its parameters before running the pipeline.")
 
         height = height or self.default_sample_size * self.vae_scale_factor
         width = width or self.default_sample_size * self.vae_scale_factor
@@ -273,14 +272,11 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
         device = self._execution_device
 
-        lora_scale = (
-            self.joint_attention_kwargs.get("scale", None) if self.joint_attention_kwargs is not None else None
-        )
-        (
-            prompt_embeds,
+        lora_scale = (self.joint_attention_kwargs.get("scale", None) if self.joint_attention_kwargs is not None else None)
+        (prompt_embeds,
             negative_prompt_embeds,
             pooled_prompt_embeds,
-            negative_pooled_prompt_embeds,
+            negative_pooled_prompt_embeds
         ) = self.encode_prompt(
             prompt=prompt,
             prompt_2=prompt_2,
@@ -297,8 +293,7 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
             clip_skip=self.clip_skip,
             num_images_per_prompt=num_images_per_prompt,
             max_sequence_length=max_sequence_length,
-            lora_scale=lora_scale,
-        )
+            lora_scale=lora_scale)
 
         original_prompt_embeds = prompt_embeds
         original_pooled_prompt_embeds = pooled_prompt_embeds
@@ -309,16 +304,8 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
         # 4. Prepare latent variables
         num_channels_latents = self.transformer.config.in_channels
-        latents = self.prepare_latents(
-            batch_size * num_images_per_prompt,
-            num_channels_latents,
-            height,
-            width,
-            prompt_embeds.dtype,
-            device,
-            generator,
-            latents,
-        )
+        latents = self.prepare_latents(batch_size * num_images_per_prompt, num_channels_latents, 
+                                       height, width, prompt_embeds.dtype, device, generator, latents)
 
         # 5. Prepare timesteps
         scheduler_kwargs = {}
@@ -327,13 +314,11 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
             image_seq_len = (height // self.transformer.config.patch_size) * (
                 width // self.transformer.config.patch_size
             )
-            mu = calculate_shift(
-                image_seq_len,
-                self.scheduler.config.get("base_image_seq_len", 256),
-                self.scheduler.config.get("max_image_seq_len", 4096),
-                self.scheduler.config.get("base_shift", 0.5),
-                self.scheduler.config.get("max_shift", 1.16),
-            )
+            mu = calculate_shift(image_seq_len, self.scheduler.config.get("base_image_seq_len", 256),
+                                self.scheduler.config.get("max_image_seq_len", 4096),
+                                self.scheduler.config.get("base_shift", 0.5),
+                                self.scheduler.config.get("max_shift", 1.16))
+            
             scheduler_kwargs["mu"] = mu
         elif mu is not None:
             scheduler_kwargs["mu"] = mu
@@ -353,13 +338,9 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
         # 6. Prepare image embeddings
         if (ip_adapter_image is not None and self.is_ip_adapter_active) or ip_adapter_image_embeds is not None:
-            ip_adapter_image_embeds = self.prepare_ip_adapter_image_embeds(
-                ip_adapter_image,
-                ip_adapter_image_embeds,
-                device,
-                batch_size * num_images_per_prompt,
-                self.do_classifier_free_guidance,
-            )
+            ip_adapter_image_embeds = self.prepare_ip_adapter_image_embeds(ip_adapter_image, ip_adapter_image_embeds, 
+                                                                           device, batch_size * num_images_per_prompt,
+                                                                           self.do_classifier_free_guidance)
 
             if self.joint_attention_kwargs is None:
                 self._joint_attention_kwargs = {"ip_adapter_image_embeds": ip_adapter_image_embeds}
@@ -376,26 +357,21 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                 timestep = t.expand(latents.shape[0])
 
                 # build per-step guidance context
-                ctx = GuidanceContext(
-                    pipeline=self,
-                    latents=latents,
-                    t=t,
-                    timestep=timestep,
-                    step_index=i,
-                    timesteps=timesteps,
-                    prompt_embeds=prompt_embeds,
-                    pooled_prompt_embeds=pooled_prompt_embeds,
-                    original_prompt_embeds=original_prompt_embeds,
-                    original_pooled_prompt_embeds=original_pooled_prompt_embeds,
-                    guidance_scale=self.guidance_scale,
-                    joint_attention_kwargs=self.joint_attention_kwargs,
-                    do_classifier_free_guidance=self.do_classifier_free_guidance,
-                )
+                ctx = GuidanceContext(pipeline=self, latents=latents, t=t, timestep=timestep, step_index=i, 
+                                      timesteps=timesteps, prompt_embeds=prompt_embeds, 
+                                      pooled_prompt_embeds=pooled_prompt_embeds, 
+                                      original_prompt_embeds=original_prompt_embeds, 
+                                      original_pooled_prompt_embeds=original_pooled_prompt_embeds, 
+                                      guidance_scale=self.guidance_scale,
+                                      joint_attention_kwargs=self.joint_attention_kwargs,
+                                      do_classifier_free_guidance=self.do_classifier_free_guidance)
 
-                # main prediction
+                # if CFG option: use the method predict_velocity_field 
+                # of the GuidanceMethod (override for each guidance method)
                 if self.do_classifier_free_guidance:
                     noise_pred = self.guidance_method.predict_velocity_field(ctx)
                 else:
+                    # if no CFG option, just predict the the noisy velocity field
                     noise_pred = self._predict_model(latents=latents, t=t, 
                                                      prompt_embeds=original_prompt_embeds, 
                                                      pooled_prompt_embeds=original_pooled_prompt_embeds, 
