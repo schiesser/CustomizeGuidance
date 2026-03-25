@@ -8,7 +8,8 @@ implemented_performance_metrics = {"FID", "CLIP",
 
 implemented_guidance_methods = {"constant", "linear",
                                 "exponential", "APG",
-                                "rectified_pp", "zero_star"}
+                                "rectified_pp", "zero_star",
+                                "SMC"}
 
 # REQUIRED PARAMETER FOR EACH CFG METHOD
 REQUIRED_APG_PARAMETERS = {"momentum_value": (int, float), 
@@ -21,9 +22,13 @@ REQUIRED_ZERO_STAR_PARAMETERS = {"zero_steps": (int,),
 REQUIRED_RECTIFIED_PP_PARAMETERS = {"lambda_max": (float,),
                                     "gamma": (float,)}
 
+REQUIRED_RECTIFIED_PP_PARAMETERS = {"lambda_param": (float,),
+                                    "k": (float,)}
+
 REQUIRED_PARAMETERS = {"APG": REQUIRED_APG_PARAMETERS,
                        "rectified_pp": REQUIRED_RECTIFIED_PP_PARAMETERS,
-                       "zero_star": REQUIRED_ZERO_STAR_PARAMETERS}
+                       "zero_star": REQUIRED_ZERO_STAR_PARAMETERS,
+                       "SMC": REQUIRED_RECTIFIED_PP_PARAMETERS}
 
 
 def check_existing_generative_model(model_name: str):

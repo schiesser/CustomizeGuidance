@@ -171,6 +171,9 @@ def build_guidance_method(guidance_type: str, params: Optional[dict[str, Any]] =
 
     if guidance_type == "zero_star":
         return ZeroStarGuidanceMethod(**params)
+    
+    if guidance_type == "SMC":
+        return SlidingModeControlGuidanceMethod(**params)
 
 
 @dataclass
