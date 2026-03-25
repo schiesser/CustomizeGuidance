@@ -15,6 +15,9 @@ class GuidanceMethod(ABC):
 
     def __init__(self, **params):
         self.params = params
+    
+    def reset(self):
+        pass
 
     @abstractmethod
     def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
@@ -64,6 +67,9 @@ class APGGuidanceMethod(GuidanceMethod):
         self.momentum_buffer = MomentumBuffer(momentum_value)
         self.eta = eta
         self.norm_threshold = norm_threshold
+        
+    def reset(self):
+        self.momentum_buffer = MomentumBuffer(self.params['momentum_value'])
 
     def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
         pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 

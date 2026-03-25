@@ -91,7 +91,7 @@ def linear_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time):
         The guided noise prediction.
     """
     # Calculate the linear scaling factor based on the current step
-    omega = 2 * (1-time) * guidance_scale
+    omega = 2 * (1-time.item()) * guidance_scale
     return noise_pred_uncond + (noise_pred_text - noise_pred_uncond) * omega
 
 def exponential_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time):

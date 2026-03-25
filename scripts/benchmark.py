@@ -1,4 +1,10 @@
 import argparse
+import json
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 from src.run import benchmark
 
 benchmark_parser = argparse.ArgumentParser(description='T2I Benchmark.')
@@ -18,6 +24,7 @@ benchmark_parser.add_argument("--run_id", type=str, default="test_run")
 benchmark_parser.add_argument("--clip_model_path", type=str, default=None)
 benchmark_parser.add_argument("--blip_model_path", type=str, default=None)
 benchmark_parser.add_argument("--seed", type=int, default=13)
+benchmark_parser.add_argument("--guidance_parameters", type=lambda x: json.loads(x) if x else None, nargs="+", default=None)
 
 args = benchmark_parser.parse_args()
 
@@ -37,6 +44,7 @@ scores = benchmark(
     clip_model_path=args.clip_model_path,
     blip_model_path=args.blip_model_path,
     seed=args.seed,
+    guidance_parameters=args.guidance_parameters
 )
 
 print(scores)

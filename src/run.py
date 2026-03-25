@@ -4,6 +4,7 @@ import torch
 from .data_utils import extract_image_info
 from .performance import compute_fid, compute_is, compute_clip_score, compute_blip_score
 from tqdm import tqdm
+import shutil
 
 def load_model(model: str, model_path: str, guidance_type: str, guidance_params: dict = None):
     """
@@ -87,7 +88,7 @@ def run(model: str,
 
     return generated_image
 
-def benchmark(model: str, guidance_types: list[str], model_path: str, data_annotations_path: str, data_images_path: str, height: int = 512, width: int = 512, num_inference_steps: int = 28, guidance_scale: float = 7, score_list: list[str] = ["FID"], number_of_images: int = 5000, run_id: str = "test_run", clip_model_path: str = None, blip_model_path: str = None, seed: int = 13):
+def benchmark(model: str, guidance_types: list[str], model_path: str, data_annotations_path: str, data_images_path: str, num_inference_steps: int = 28, guidance_scale: float = 7, score_list: list[str] = ["FID"], number_of_images: int = 5000, run_id: str = "test_run", clip_model_path: str = None, blip_model_path: str = None, seed: int = 13, height:int=512, width:int=512, guidance_parameters: list[dict] = None):
     """
     Run a benchmark:
     retrieve scores for guidances_types for a given generative model and a given dataset.
@@ -121,20 +122,37 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
     for score_name in score_list: check_existing_evaluation_metric(score_name)
 
     # get captions, dimensions and jpeg name of the original images
-    images_info = extract_image_info(data_annotations_path, seed=seed)
+    images_info = extract_image_info(data_annotations_path, seed=seed, keep_divisible_16 = True)
     
     # generate images with the given model/guidance method for every prompt and save them in a target folder 
     full_score = {}
-    for guidance_method in guidance_types:
+    for i, guidance_method in tqdm(enumerate(guidance_types), total=len(guidance_types), desc="Guidance methods"):
 
-        path_generated_images = f"outputs/generated_images/{run_id}/{guidance_method}"
-        Path(path_generated_images).mkdir(parents=True, exist_ok=True)
+        if any(s in score_list for s in ["IS", "CLIP", "BLIP"]):
+            path_generated_images = f"outputs/{run_id}/generated_images/{guidance_method}"
+            Path(path_generated_images).mkdir(parents=True, exist_ok=True)
 
-        pipeline_model = load_model(model, model_path, guidance_method)
+        if "FID" in score_list:
+            path_original_fid = f"outputs/{run_id}/FID/original_images/{guidance_method}"
+            Path(path_original_fid).mkdir(parents=True, exist_ok=True)
+            path_generated_fid = f"outputs/{run_id}/FID/generated_images/{guidance_method}"
+            Path(path_generated_fid).mkdir(parents=True, exist_ok=True)
 
-        for idx, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images):
-            generated_image = generate_image(pipeline_model, row['caption'], row['height'], row['width'], num_inference_steps, guidance_scale)
-            generated_image.save(f"{path_generated_images}/{row['file_name']}")
+        pipeline_model = load_model(model, model_path, guidance_method, guidance_parameters[i] if guidance_parameters is not None else None)
+
+        for idx, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images, desc=f"    [{guidance_method}] Generating images"):
+
+            # for FID (keep same dimension between original and generated images)
+            if "FID" in score_list:
+                pipeline_model.guidance_method.reset()
+                generated_image_fid = generate_image(pipeline_model, row['caption'], row['height'], row['width'], num_inference_steps, guidance_scale)
+                generated_image_fid.save(f"{path_generated_fid}/{row['file_name']}")
+                shutil.copy(f"{data_images_path}/{row['file_name']}", f"{path_original_fid}/{row['file_name']}")
+
+            if any(s in score_list for s in ["IS", "CLIP", "BLIP"]):
+                pipeline_model.guidance_method.reset()
+                generated_image = generate_image(pipeline_model, row['caption'], height, width, num_inference_steps, guidance_scale)
+                generated_image.save(f"{path_generated_images}/{row['file_name']}")
         
         # evaluate the score of the generated images against the original ones with the given evaluation metric(s)
         dict_score = {}
@@ -147,7 +165,7 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
 
         # compute score
         if "FID" in score_list:
-            fid_score = compute_fid(path_generated_images, data_images_path)
+            fid_score = compute_fid(path_generated_fid, path_original_fid)
         if "IS" in score_list :
             is_mean, is_std = compute_is(path_generated_images, seed=seed)   
         if "CLIP" in score_list :

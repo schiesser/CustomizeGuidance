@@ -2,7 +2,7 @@ import pandas as pd
 import json
 import numpy as np
 
-def extract_image_info(path: str, seed: int = 13) -> pd.DataFrame:
+def extract_image_info(path: str, seed: int = 13, keep_divisible_16 = True) -> pd.DataFrame:
     """
     Create a DataFrame with 4 columns: 
         image jpeg name to retrieve the original image
@@ -33,7 +33,13 @@ def extract_image_info(path: str, seed: int = 13) -> pd.DataFrame:
     images_df = pd.DataFrame(data['images'])[['id', 'file_name', 'height', 'width']].rename(columns={'id': 'image_id'})
     df = pd.merge(caption_df, images_df, on='image_id', how='inner').drop(columns=['image_id'])
 
+    if keep_divisible_16:
+        df = df[df.apply(_non_divisible16, axis=1)]
+
     # free space
     del data, caption_df, images_df
 
     return df
+
+def _non_divisible16(x):
+    return (x['height'] % 16 == 0) and (x['width'] % 16 == 0)
