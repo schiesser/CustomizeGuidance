@@ -30,7 +30,8 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
         sd3.to(torch_device)
     return sd3
 
-def generate_image(model_pipeline, prompt: str, height: int = 512, width: int = 512, num_inference_steps: int = 28, guidance_scale: float = 7):
+def generate_image(model_pipeline, prompt: str, height: int = 512, width: int = 512,
+                   num_inference_steps: int = 28, guidance_scale: float = 7):
     """
     Generate an image using a loaded model pipeline.
 
@@ -45,27 +46,14 @@ def generate_image(model_pipeline, prompt: str, height: int = 512, width: int = 
     Returns:
         PIL.Image: Generated image.
     """
-    result = model_pipeline(
-        prompt=prompt,
-        height=height,
-        width=width,
-        num_inference_steps=num_inference_steps,
-        guidance_scale=guidance_scale,
-        generator=torch.Generator().manual_seed(13)
-    )
+    result = model_pipeline(prompt=prompt, height=height, width=width, num_inference_steps=num_inference_steps,
+                            guidance_scale=guidance_scale, generator=torch.Generator().manual_seed(13))
 
     return result.images[0]
 
-def run(model: str,
-        guidance_type: str,
-        model_path: str,
-        prompt: str,
-        height: int = 512,
-        width: int = 512,
-        num_inference_steps: int = 28,
-        guidance_scale: float = 7,
-        guidance_params: dict = None
-        ):
+def run(model: str, guidance_type: str, model_path: str, prompt: str, height: int = 512, 
+        width: int = 512, num_inference_steps: int = 28, guidance_scale: float = 7, 
+        guidance_params: dict = None):
     """
     Run inference on a generative model with a given guidance method.
 
@@ -88,7 +76,11 @@ def run(model: str,
 
     return generated_image
 
-def benchmark(model: str, guidance_types: list[str], model_path: str, data_annotations_path: str, data_images_path: str, num_inference_steps: int = 28, guidance_scale: float = 7, score_list: list[str] = ["FID"], number_of_images: int = 5000, run_id: str = "test_run", clip_model_path: str = None, blip_model_path: str = None, seed: int = 13, height:int=512, width:int=512, guidance_parameters: list[dict] = None):
+def benchmark(model: str, guidance_types: list[str], model_path: str, data_annotations_path: str, 
+              data_images_path: str, num_inference_steps: int = 28, guidance_scale: float = 7, 
+              score_list: list[str] = ["FID"], number_of_images: int = 5000, run_id: str = "test_run", 
+              clip_model_path: str = None, blip_model_path: str = None, seed: int = 13, height:int=512,
+              width:int=512, guidance_parameters: list[dict] = None, keep_images: bool = False):
     """
     Run a benchmark:
     retrieve scores for guidances_types for a given generative model and a given dataset.
@@ -180,5 +172,12 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
         dict_score["blip"] = blip_score
 
         full_score[guidance_method] = dict_score
+
+    if not keep_images:
+        if "FID" in score_list:
+            shutil.rmtree(path_original_fid)
+            shutil.rmtree(path_generated_fid)
+        if any(s in score_list for s in ["IS", "CLIP", "BLIP"]):
+            shutil.rmtree(path_generated_images)
 
     return full_score
