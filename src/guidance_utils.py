@@ -185,7 +185,7 @@ def adaptative_projected_guidance(noise_pred_uncond, noise_pred_text, guidance_s
 
     return pred_guided
 
-def zero_star_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, zeros_steps, use_zero_init, time_step):
+def zero_star_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, zeros_steps, use_zero_init, step_index):
     """
     Implements the zero* guidance method.
 
@@ -195,13 +195,13 @@ def zero_star_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, zeros
         guidance_scale: The scale of the guidance to apply.
         use_zero_init: boolean. If true, the first steps force the velocity to be zero.
         zeros_steps: number of steps where the velocity is forced to be 0.
-        time_step: current time step
+        step_index: current step index
     
     Returns:
         The guided noise prediction, shape (B, C, H, W).
     """
 
-    if (use_zero_init) and (time_step < zeros_steps):
+    if (use_zero_init) and (step_index < zeros_steps):
         return torch.zeros_like(noise_pred_uncond)
     
     s_star = _compute_projection(noise_pred_text, noise_pred_uncond)

@@ -131,7 +131,7 @@ class ZeroStarGuidanceMethod(GuidanceMethod):
                                                              do_cfg=True)
         
         return zero_star_guidance(pred_uncond, pred_cond, ctx.guidance_scale, 
-                                  self.zero_steps, self.use_zero_init, ctx.timestep)
+                                  self.zero_steps, self.use_zero_init, ctx.step_index)
 
 
 def build_guidance_method(guidance_type: str, params: Optional[dict[str, Any]] = None) -> GuidanceMethod:
