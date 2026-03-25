@@ -24,10 +24,9 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
     check_existing_guidance_method(guidance_type)
 
     if model == "SD3":
-        sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, guidance_type=guidance_type, guidance_params=guidance_params)
+        sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.bfloat16)
         sd3.configure_guidance(guidance_type=guidance_type, guidance_params=guidance_params)
         sd3.to(torch_device)
-
     return sd3
 
 def generate_image(model_pipeline, prompt: str, height: int = 512, width: int = 512, num_inference_steps: int = 28, guidance_scale: float = 7):

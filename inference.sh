@@ -1,7 +1,7 @@
 #!/bin/bash
 
 MODEL="SD3"
-MODEL_PATH="/scratch/cvlab/home/schiesser/models/sd35_medium"
+MODEL_PATH="/home/schiesser/models/sd35_medium"
 
 PROMPT="a beautiful sunset over the mountains"
 
@@ -10,10 +10,11 @@ WIDTH=512
 
 NUM_STEPS=28
 GUIDANCE_SCALE=7.0
-GUIDANCE_TYPE="constant"
+GUIDANCE_TYPE="APG"
+GUIDANCE_PARAMETERS='{"momentum_value": 0.0, "eta": -0.75, "norm_threshold": 15.0}'
 
-OUTPUT="output.png"
-PLOT=False
+OUTPUT="outputs/output.png"
+PLOT=false
 
 python scripts/inference.py \
     --model "$MODEL" \
@@ -24,5 +25,6 @@ python scripts/inference.py \
     --width $WIDTH \
     --num_inference_steps $NUM_STEPS \
     --guidance_scale $GUIDANCE_SCALE \
+    --guidance_parameters "$GUIDANCE_PARAMETERS" \
     --output "$OUTPUT" \
     --plot $PLOT

@@ -109,7 +109,7 @@ def exponential_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, tim
     """
     # Calculate the exponential scaling factor based on the current step
     alpha = (guidance_scale / (np.exp(1) - 1))
-    omega = alpha * (np.exp(1-time))
+    omega = alpha * (np.exp(1-time.item()))
     return noise_pred_uncond + (noise_pred_text - noise_pred_uncond) * omega
 
 
