@@ -91,6 +91,17 @@ class MomentumBuffer:
         new_avg = self.momentum * self.running_avg
         self.running_avg = new_value + new_avg
 
+class GuidanceTermBuffer:
+    """
+    Class used for Sliding Mode Control (SMC-CFG). 
+    It buffers the guidance term (v_cond - v_uncond).
+    """
+    def __init__(self):
+        self.previous_e = None
+    def update(self, current_e):
+        self.previous_e = current_e
+
+
 def constant_guidance(noise_pred_uncond, noise_pred_text, guidance_scale):
     """
     Applies constant guidance to the noise prediction.
@@ -208,3 +219,41 @@ def zero_star_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, zeros
     pred_guided = (1-guidance_scale)*s_star*noise_pred_uncond + guidance_scale*noise_pred_text
 
     return pred_guided
+
+def sliding_mode_control_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, lambda_param, k, guidance_term_buffer):
+    """
+    Implements the SMC (sliding mode control CFG).
+
+    Args:
+        noise_pred_uncond: The noise prediction for the unconditional input, shape (B, C, H, W).
+        noise_pred_text: The noise prediction for the text input, shape (B, C, H, W).
+        guidance_scale: The scale of the guidance to apply.
+        lambda_param: Shape parameter of the sliding mode surface.
+        k: Gain of the switching control term.
+        guidance_term_buffer: store previous semantic error signal (e(t)).
+
+    Returns:
+        The guided noise prediction, shape (B, C, H, W).
+    """
+    current_e = noise_pred_text - noise_pred_uncond
+
+    if (guidance_term_buffer.previous_e is None):
+        guidance_term_buffer.update(current_e)
+    
+    sliding = (current_e - guidance_term_buffer.previous_e) + lambda_param * guidance_term_buffer.previous_e
+    
+    delta_guidance = - k * _smooth_sign(sliding)
+
+    current_e = current_e + delta_guidance
+
+    pred_guided = noise_pred_uncond + guidance_scale * delta_guidance
+
+    guidance_term_buffer.update(current_e)
+    
+    return pred_guided
+
+def _smooth_sign(x, eps=1e-6):
+    """
+    Compute sign.
+    """
+    return x / (x.abs() + eps)

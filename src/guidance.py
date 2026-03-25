@@ -5,7 +5,8 @@ from typing import Any, Optional
 from dataclasses import dataclass
 import torch
 
-from .guidance_utils import MomentumBuffer, constant_guidance, linear_guidance, exponential_guidance, adaptative_projected_guidance, zero_star_guidance
+from .guidance_utils import MomentumBuffer, GuidanceTermBuffer
+from .guidance_utils import constant_guidance, linear_guidance, exponential_guidance, adaptative_projected_guidance, zero_star_guidance, sliding_mode_control_guidance
 from .error import check_existing_guidance_method, check_guidance_parameters
 
 class GuidanceMethod(ABC):
@@ -131,7 +132,22 @@ class ZeroStarGuidanceMethod(GuidanceMethod):
         
         return zero_star_guidance(pred_uncond, pred_cond, ctx.guidance_scale, 
                                   self.zero_steps, self.use_zero_init, ctx.step_index)
-
+    
+class SlidingModeControlGuidanceMethod(GuidanceMethod):
+    
+    def __init__(self, lambda_param, k):
+        super().__init__()
+        self.lambda_param = lambda_param
+        self.k = k
+        self.guidance_term_buffer = GuidanceTermBuffer()
+    
+    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
+                                                        prompt_embeds=ctx.prompt_embeds,
+                                                        pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
+                                                        do_cfg=True)
+        return sliding_mode_control_guidance(pred_uncond, pred_cond, ctx.guidance_scale, 
+                                             self.lambda_param, self.k, self.guidance_term_buffer)
 
 def build_guidance_method(guidance_type: str, params: Optional[dict[str, Any]] = None) -> GuidanceMethod:
     
