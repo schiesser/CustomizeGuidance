@@ -10,7 +10,6 @@ from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import c
 from diffusers.utils import is_torch_xla_available
 
 from ..guidance import build_guidance_method, GuidanceContext
-from ..error import check_existing_guidance_method, check_guidance_parameters
 
 xm = None
 if is_torch_xla_available():
@@ -47,8 +46,7 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
             guidance_type (str): Name of the guidance method.
             guidance_params (dict, optional): Parameters specific to the chosen guidance method.
         """
-        check_existing_guidance_method(guidance_type)
-        check_guidance_parameters(guidance_type, guidance_params)
+
 
         self.guidance_type = guidance_type
         self.guidance_method = build_guidance_method(guidance_type, guidance_params)

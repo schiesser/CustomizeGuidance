@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import torch
 
-from .guidance_utils import MomentumBuffer, constant_guidance, linear_guidance, exponential_guidance, adaptative_projected_guidance
+from .guidance_utils import MomentumBuffer, constant_guidance, linear_guidance, exponential_guidance, adaptative_projected_guidance, zero_star_guidance
+from .error import check_existing_guidance_method, check_guidance_parameters
 
 class GuidanceMethod(ABC):
     """
@@ -13,8 +14,8 @@ class GuidanceMethod(ABC):
     Note: Abstract class.
     """
 
-    def __init__(self, **params):
-        self.params = params
+    def __init__(self):
+        pass
     
     def reset(self):
         pass
@@ -62,29 +63,31 @@ class ExponentialGuidanceMethod(GuidanceMethod):
 
 class APGGuidanceMethod(GuidanceMethod):
 
-    def __init__(self, momentum_value: float = 0.9, eta: float = 1.0, norm_threshold: float = 0.0, **params):
-        super().__init__(momentum_value=momentum_value, eta=eta, norm_threshold=norm_threshold, **params)
+    def __init__(self, momentum_value: float = 0.9, eta: float = 1.0, norm_threshold: float = 0.0):
+        super().__init__()
+        self.momentum_value = momentum_value
         self.momentum_buffer = MomentumBuffer(momentum_value)
         self.eta = eta
         self.norm_threshold = norm_threshold
         
     def reset(self):
-        self.momentum_buffer = MomentumBuffer(self.params['momentum_value'])
+        self.momentum_buffer = MomentumBuffer(self.momentum_value)
 
     def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
         pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
                                                              prompt_embeds=ctx.prompt_embeds,
-                                                               pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
-                                                               do_cfg=True)
-
-        apg_state={"momentum_buffer": self.momentum_buffer, "eta": self.eta,"norm_threshold": self.norm_threshold}
+                                                             pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
+                                                             do_cfg=True)
+        
+        apg_state = {"momentum_buffer": self.momentum_buffer, "eta": self.eta, "norm_threshold": self.norm_threshold}
 
         return adaptative_projected_guidance(pred_uncond, pred_cond, ctx.guidance_scale, ctx.normalized_time(), ctx.latents, apg_state)
 
+
 class RectifiedPPGuidanceMethod(GuidanceMethod):
 
-    def __init__(self, alpha_scale: Optional[float] = None, **params):
-        super().__init__(alpha_scale=alpha_scale, **params)
+    def __init__(self, alpha_scale: Optional[float] = None):
+        super().__init__()
         self.alpha_scale = alpha_scale
 
     def _compute_dt(self, ctx: GuidanceContext) -> torch.Tensor:
@@ -98,14 +101,10 @@ class RectifiedPPGuidanceMethod(GuidanceMethod):
         return torch.as_tensor(ctx.guidance_scale, device=ctx.latents.device, dtype=ctx.latents.dtype)
 
     def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        if ctx.original_prompt_embeds is None or ctx.original_pooled_prompt_embeds is None:
-            raise ValueError("RectifiedPPGuidanceMethod requires original conditional embeddings.")
-
         v_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
                                              prompt_embeds=ctx.original_prompt_embeds, 
                                              pooled_prompt_embeds=ctx.original_pooled_prompt_embeds, 
                                              do_cfg=False)
-
         dt = self._compute_dt(ctx)
         x_mid = ctx.latents + 0.5 * dt * v_cond
         t_mid = ctx.t - 0.5 * dt
@@ -114,22 +113,40 @@ class RectifiedPPGuidanceMethod(GuidanceMethod):
                                                                prompt_embeds=ctx.prompt_embeds, 
                                                                pooled_prompt_embeds=ctx.pooled_prompt_embeds,
                                                                do_cfg=True)
-
         alpha_t = self._compute_alpha_t(ctx)
         return v_cond + alpha_t * (v_cond_mid - v_uncond_mid)
 
 
-def build_guidance_method(guidance_type: str, params: Optional[dict[str, Any]] = None) -> GuidanceMethod: 
-    params = params or {}
+class ZeroStarGuidanceMethod(GuidanceMethod):
+
+    def __init__(self, zero_steps: int = 0, use_zero_init: bool = False):
+        super().__init__()
+        self.zero_steps = zero_steps
+        self.use_zero_init = use_zero_init
+
+    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
+                                                             prompt_embeds=ctx.prompt_embeds,
+                                                             pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
+                                                             do_cfg=True)
+        
+        return zero_star_guidance(pred_uncond, pred_cond, ctx.guidance_scale, 
+                                  self.zero_steps, self.use_zero_init, ctx.timestep)
+
+
+def build_guidance_method(guidance_type: str, params: Optional[dict[str, Any]] = None) -> GuidanceMethod:
+    
+    check_existing_guidance_method(guidance_type)
+    check_guidance_parameters(guidance_type, params)
 
     if guidance_type == "constant":
-        return ConstantGuidanceMethod(**params)
+        return ConstantGuidanceMethod()
 
     if guidance_type == "linear":
-        return LinearGuidanceMethod(**params)
+        return LinearGuidanceMethod()
 
     if guidance_type == "exponential":
-        return ExponentialGuidanceMethod(**params)
+        return ExponentialGuidanceMethod()
 
     if guidance_type == "APG":
         return APGGuidanceMethod(**params)
@@ -137,7 +154,9 @@ def build_guidance_method(guidance_type: str, params: Optional[dict[str, Any]] =
     if guidance_type == "rectified_pp":
         return RectifiedPPGuidanceMethod(**params)
 
-    raise ValueError(f"Unknown guidance_type: {guidance_type}")
+    if guidance_type == "zero_star":
+        return ZeroStarGuidanceMethod(**params)
+
 
 @dataclass
 class GuidanceContext:

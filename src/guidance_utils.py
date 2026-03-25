@@ -1,13 +1,33 @@
 import numpy as np
 import torch
 
-def _project(v0, v1):
+def _compute_projection(v0, v1):
     """
-    Projects v0 onto v1 and computes the orthogonal and parallel components.
+    Computes the projection fraction of v0 onto v1.
+    
+    proj = (v0 · v1) / ||v1||²
 
     Args:
-        v0: The vector to be projected, shape (B, C, H, W)
+        v0: The vector to project, shape (B, C, H, W)
         v1: The vector to project onto, shape (B, C, H, W)
+
+    Returns:
+        proj: scalar projection coefficient, shape (B, 1, 1, 1)
+    """
+    dtype = v0.dtype
+    v0, v1 = v0.double(), v1.double()
+    v1_norm_sq = (v1 * v1).sum(dim=[-1,-2,-3], keepdim=True)
+    proj = (v0 * v1).sum(dim=[-1,-2,-3], keepdim=True) / (v1_norm_sq + 1e-8)
+    return proj.to(dtype)
+
+
+def _decompose_parallel_ortho_component(v0, v1):
+    """
+    Decomposes v0 into its parallel and orthogonal components with respect to v1.
+
+    Args:
+        v0: The vector to decompose, shape (B, C, H, W)
+        v1: The reference vector, shape (B, C, H, W)
 
     Returns:
         v0_parallel: The component of v0 parallel to v1, shape (B, C, H, W)
@@ -15,8 +35,8 @@ def _project(v0, v1):
     """
     dtype = v0.dtype
     v0, v1 = v0.double(), v1.double()
-    v1 = torch.nn.functional.normalize(v1, dim = [-1,-2,-3])
-    v0_parallel = (v0 * v1).sum(dim = [-1,-2,-3], keepdim=True) * v1
+    proj = _compute_projection(v0, v1)
+    v0_parallel = proj * v1
     v0_orthogonal = v0 - v0_parallel
     return v0_parallel.to(dtype), v0_orthogonal.to(dtype)
 
@@ -52,6 +72,7 @@ def _to_noise(x0, x_t, t):
     if t < 1e-6:
         return x0
     return (x_t - x0) / t
+
 
 class MomentumBuffer:
     def __init__(self, momentum: float):
@@ -146,17 +167,21 @@ def adaptative_projected_guidance(noise_pred_uncond, noise_pred_text, guidance_s
         scale_factor = torch.minimum(ones, APG_parameters["norm_threshold"] / (diff_norm + 1e-8))
         diff = diff * scale_factor
 
-    diff_parallel, diff_orthogonal = _project(diff, x0_uncond)
+    diff_parallel, diff_orthogonal = _decompose_parallel_ortho_component(diff, x0_uncond)
 
-    normalized_update = diff_orthogonal+APG_parameters["eta"]*diff_parallel
+    normalized_update = diff_orthogonal + APG_parameters["eta"]*diff_parallel
     x0_guided = x0_text + (guidance_scale - 1) * normalized_update
 
     pred_guided = _to_noise(x0_guided, latents, time)
 
     return pred_guided
 
-def rectified_pp_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, time, latents, rectified_parameters):
-    """
-    Placeholder for the Rectified++ guidance method.
-    """
-    return NotImplementedError("Rectified++ guidance method is not implemented yet.")
+def zero_star_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, zeros_steps, use_zero_init, time_step):
+
+    if (use_zero_init) and (time_step < zeros_steps):
+        return torch.zeros_like(noise_pred_uncond)
+    
+    s_star = _compute_projection(noise_pred_text, noise_pred_uncond)
+    pred_guided = (1-guidance_scale)*s_star*noise_pred_uncond + guidance_scale*noise_pred_text
+
+    return pred_guided
