@@ -63,7 +63,7 @@ class ExponentialGuidanceMethod(GuidanceMethod):
 
 class APGGuidanceMethod(GuidanceMethod):
 
-    def __init__(self, momentum_value: float = 0.9, eta: float = 1.0, norm_threshold: float = 0.0):
+    def __init__(self, momentum_value: float = 0.9, eta: float = 1.0, norm_threshold: float = 15.0):
         super().__init__()
         self.momentum_value = momentum_value
         self.momentum_buffer = MomentumBuffer(momentum_value)
@@ -86,9 +86,10 @@ class APGGuidanceMethod(GuidanceMethod):
 
 class RectifiedPPGuidanceMethod(GuidanceMethod):
 
-    def __init__(self, alpha_scale: Optional[float] = None):
+    def __init__(self, lambda_max: float, gamma: float):
         super().__init__()
-        self.alpha_scale = alpha_scale
+        self.lambda_max = lambda_max
+        self.gamma = gamma
 
     def _compute_dt(self, ctx: GuidanceContext) -> torch.Tensor:
         if ctx.step_index < len(ctx.timesteps) - 1:
@@ -96,9 +97,7 @@ class RectifiedPPGuidanceMethod(GuidanceMethod):
         return ctx.timesteps[ctx.step_index]
 
     def _compute_alpha_t(self, ctx: GuidanceContext) -> torch.Tensor:
-        if self.alpha_scale is not None:
-            return torch.as_tensor(self.alpha_scale, device=ctx.latents.device, dtype=ctx.latents.dtype)
-        return torch.as_tensor(ctx.guidance_scale, device=ctx.latents.device, dtype=ctx.latents.dtype)
+        return self.lambda_max*(1-ctx.normalized_time())**self.gamma
 
     def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
         v_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 

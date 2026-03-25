@@ -18,7 +18,8 @@ REQUIRED_APG_PARAMETERS = {"momentum_value": (int, float),
 REQUIRED_ZERO_STAR_PARAMETERS = {"zero_steps": (int,),
                                  "use_zero_init": (bool,)}
 
-REQUIRED_RECTIFIED_PP_PARAMETERS = {"alpha_scale": (float)}
+REQUIRED_RECTIFIED_PP_PARAMETERS = {"lambda_max": (float,),
+                                    "gamma": (float,)}
 
 REQUIRED_PARAMETERS = {"APG": REQUIRED_APG_PARAMETERS,
                        "rectified_pp": REQUIRED_RECTIFIED_PP_PARAMETERS,
