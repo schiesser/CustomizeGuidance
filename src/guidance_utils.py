@@ -75,6 +75,15 @@ def _to_noise(x0, x_t, t):
 
 
 class MomentumBuffer:
+    """
+    Class used for the Adaptative Projected Guidance method. It buffers the average of previous velocities. 
+
+    Attributes:
+        momentum (float): Decay factor for the running average. Higher values
+            give more weight to past values. Should be in [0, 1).
+        running_avg (torch.Tensor | int): Current running average, initialized
+            to 0 and updated at each denoising step
+    """
     def __init__(self, momentum: float):
         self.momentum = momentum
         self.running_avg = 0
@@ -177,6 +186,20 @@ def adaptative_projected_guidance(noise_pred_uncond, noise_pred_text, guidance_s
     return pred_guided
 
 def zero_star_guidance(noise_pred_uncond, noise_pred_text, guidance_scale, zeros_steps, use_zero_init, time_step):
+    """
+    Implements the zero* guidance method.
+
+    Args:
+        noise_pred_uncond: The noise prediction for the unconditional input, shape (B, C, H, W).
+        noise_pred_text: The noise prediction for the text input, shape (B, C, H, W).
+        guidance_scale: The scale of the guidance to apply.
+        use_zero_init: boolean. If true, the first steps force the velocity to be zero.
+        zeros_steps: number of steps where the velocity is forced to be 0.
+        time_step: current time step
+    
+    Returns:
+        The guided noise prediction, shape (B, C, H, W).
+    """
 
     if (use_zero_init) and (time_step < zeros_steps):
         return torch.zeros_like(noise_pred_uncond)
