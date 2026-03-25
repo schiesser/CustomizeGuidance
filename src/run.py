@@ -25,7 +25,7 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
     check_existing_guidance_method(guidance_type)
 
     if model == "SD3":
-        sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.bfloat16)
+        sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.float32)
         sd3.configure_guidance(guidance_type=guidance_type, guidance_params=guidance_params)
         sd3.to(torch_device)
     return sd3
@@ -105,6 +105,8 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
         dict: Dictionary containing the scores for each guidance method and each evaluation metric.
     """
 
+
+    print(guidance_parameters)
     # Validate inputs
     check_model_downloaded_path(model_path)
     check_existing_generative_model(model)
@@ -174,10 +176,6 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
         full_score[guidance_method] = dict_score
 
     if not keep_images:
-        if "FID" in score_list:
-            shutil.rmtree(path_original_fid)
-            shutil.rmtree(path_generated_fid)
-        if any(s in score_list for s in ["IS", "CLIP", "BLIP"]):
-            shutil.rmtree(path_generated_images)
+        shutil.rmtree(f"outputs/{run_id}")
 
     return full_score

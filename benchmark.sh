@@ -12,15 +12,15 @@ CLIP_MODEL_PATH="/home/schiesser/models/clip"
 BLIP_MODEL_PATH="/home/schiesser/models/blip"
 
 # images size / number
-NUM_IMAGES=20
+NUM_IMAGES=10
 HEIGHT=256
 WIDTH=256
 
 # steps and guidance scale
-NUM_STEPS=35
+NUM_STEPS=10
 GUIDANCE_SCALE=7.0
-GUIDANCE_TYPES=("constant" "linear" "exponential" "APG")
-LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.0, "eta": -0.75, "norm_threshold": 15.0}')
+GUIDANCE_TYPES=("constant" "linear" "exponential" "APG" "zero_star" "rectified_pp" "SMC")
+LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.0, "eta": -0.75, "norm_threshold": 15.0}' '{"zero_steps": 0, "use_zero_init": false '} '{"lambda_max": 1.3 , "gamma": 2.0 }' '{"lambda_param": 1.5 , "k": 2.0}')
 
 # score 
 SCORES=("FID" "CLIP" "IS" "BLIP")

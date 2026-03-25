@@ -11,7 +11,7 @@ WIDTH=512
 NUM_STEPS=28
 GUIDANCE_SCALE=7.0
 GUIDANCE_TYPE="APG"
-GUIDANCE_PARAMETERS='{"momentum_value": 0.0, "eta": -0.75, "norm_threshold": 15.0}'
+GUIDANCE_PARAMETERS='{"momentum_value": 0.3, "eta": -0.75, "norm_threshold": 15.0}'
 
 OUTPUT="outputs/output.png"
 PLOT=false

@@ -99,7 +99,7 @@ class GuidanceTermBuffer:
     def __init__(self):
         self.previous_e = None
     def update(self, current_e):
-        self.previous_e = current_e
+        self.previous_e = current_e.detach().clone()
 
 
 def constant_guidance(noise_pred_uncond, noise_pred_text, guidance_scale):

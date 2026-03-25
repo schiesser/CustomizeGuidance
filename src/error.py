@@ -22,13 +22,13 @@ REQUIRED_ZERO_STAR_PARAMETERS = {"zero_steps": (int,),
 REQUIRED_RECTIFIED_PP_PARAMETERS = {"lambda_max": (float,),
                                     "gamma": (float,)}
 
-REQUIRED_RECTIFIED_PP_PARAMETERS = {"lambda_param": (float,),
-                                    "k": (float,)}
+REQUIRED_SMC_PARAMETERS = {"lambda_param": (float,),
+                           "k": (float,)}
 
 REQUIRED_PARAMETERS = {"APG": REQUIRED_APG_PARAMETERS,
                        "rectified_pp": REQUIRED_RECTIFIED_PP_PARAMETERS,
                        "zero_star": REQUIRED_ZERO_STAR_PARAMETERS,
-                       "SMC": REQUIRED_RECTIFIED_PP_PARAMETERS}
+                       "SMC": REQUIRED_SMC_PARAMETERS}
 
 
 def check_existing_generative_model(model_name: str):

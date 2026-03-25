@@ -141,11 +141,15 @@ class SlidingModeControlGuidanceMethod(GuidanceMethod):
         self.k = k
         self.guidance_term_buffer = GuidanceTermBuffer()
     
+    def reset(self):
+        self.guidance_term_buffer = GuidanceTermBuffer()
+    
     def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
         pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
                                                         prompt_embeds=ctx.prompt_embeds,
                                                         pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
                                                         do_cfg=True)
+                                                        
         return sliding_mode_control_guidance(pred_uncond, pred_cond, ctx.guidance_scale, 
                                              self.lambda_param, self.k, self.guidance_term_buffer)
 
