@@ -9,7 +9,8 @@ from diffusers.pipelines.stable_diffusion_3.pipeline_output import StableDiffusi
 from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import calculate_shift, retrieve_timesteps
 from diffusers.utils import is_torch_xla_available
 
-from ..guidance import build_guidance_method, GuidanceContext
+from ..guidance import build_guidance_method
+from ..guidance import CFGContext, SD3StepState
 
 xm = None
 if is_torch_xla_available():
@@ -55,16 +56,16 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
         return
 
-    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, prompt_embeds: torch.Tensor, 
-                       pooled_prompt_embeds: torch.Tensor, do_cfg: bool, skip_layers: list[int] | None = None ):
+    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, do_cfg: bool):
 
         latent_model_input = torch.cat([latents] * 2) if do_cfg else latents
         timestep = t.expand(latent_model_input.shape[0])
 
         pred = self.transformer(hidden_states=latent_model_input, timestep=timestep, 
-                                encoder_hidden_states=prompt_embeds, pooled_projections=pooled_prompt_embeds, 
+                                encoder_hidden_states=self.sd_ctx.prompt_embeds,
+                                pooled_projections=self.sd_ctx.pooled_prompt_embeds, 
                                 joint_attention_kwargs=self.joint_attention_kwargs, return_dict=False, 
-                                skip_layers=skip_layers)[0]
+                                skip_layers=self.sd_ctx.guidance_ctx.skip_layers)[0]
 
         if do_cfg:
             pred_uncond, pred_cond = pred.chunk(2)
@@ -346,6 +347,13 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
             else:
                 self._joint_attention_kwargs.update(ip_adapter_image_embeds=ip_adapter_image_embeds)
 
+        # set SD3StepState
+        self. sd_ctx = SD3StepState(prompt_embeds=prompt_embeds,
+                                    pooled_prompt_embeds=pooled_prompt_embeds,
+                                    original_prompt_embeds =original_prompt_embeds,
+                                    original_pooled_prompt_embeds=original_pooled_prompt_embeds,
+                                    skip_guidance_layers = skip_guidance_layers)
+
         # 7. Denoising loop
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
@@ -356,25 +364,17 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                 timestep = t.expand(latents.shape[0])
 
                 # build per-step guidance context
-                ctx = GuidanceContext(pipeline=self, latents=latents, t=t, timestep=timestep, step_index=i, 
-                                    timesteps=timesteps, prompt_embeds=prompt_embeds, 
-                                    pooled_prompt_embeds=pooled_prompt_embeds, 
-                                    original_prompt_embeds=original_prompt_embeds, 
-                                    original_pooled_prompt_embeds=original_pooled_prompt_embeds, 
-                                    guidance_scale=self.guidance_scale,
-                                    joint_attention_kwargs=self.joint_attention_kwargs,
-                                    do_classifier_free_guidance=self.do_classifier_free_guidance)
+                guidance_ctx = CFGContext(pipeline=self, latents=latents, t=t, 
+                                          timestep=timestep, step_index=i, 
+                                          timesteps=timesteps, guidance_scale=self.guidance_scale)
 
                 # if CFG option: use the method predict_velocity_field 
                 # of the GuidanceMethod (override for each guidance method)
                 if self.do_classifier_free_guidance:
-                    noise_pred = self.guidance_method.predict_velocity_field(ctx)
+                    noise_pred = self.guidance_method.predict_velocity_field(guidance_ctx)
                 else:
                     # if no CFG option, just predict the the noisy velocity field
-                    noise_pred = self._predict_model(latents=latents, t=t, 
-                                                    prompt_embeds=original_prompt_embeds, 
-                                                    pooled_prompt_embeds=original_pooled_prompt_embeds, 
-                                                    do_cfg=False)
+                    noise_pred = self._predict_model(latents=guidance_ctx.latents, t=guidance_ctx.t, do_cfg=False)
 
                 # optional skip-layer correction
                 if self.do_classifier_free_guidance:
@@ -386,14 +386,9 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                     )
 
                     if skip_guidance_layers is not None and should_skip_layers:
-                        noise_pred_skip_layers = self._predict_model(latents=latents, t=t, prompt_embeds=original_prompt_embeds, 
-                                                                    pooled_prompt_embeds=original_pooled_prompt_embeds, 
-                                                                    do_cfg=False, skip_layers=skip_guidance_layers)
+                        noise_pred_skip_layers = self._predict_model(latents=guidance_ctx.latents, t=guidance_ctx.t, do_cfg=False)
 
-                        _, pred_cond = self._predict_model(latents=latents, t=t,
-                                                        prompt_embeds=prompt_embeds,
-                                                        pooled_prompt_embeds=pooled_prompt_embeds,
-                                                        do_cfg=True)
+                        _, pred_cond = self._predict_model(latents=guidance_ctx.latents, t=guidance_ctx.t, do_cfg=True)
 
                         noise_pred = (noise_pred + (pred_cond - noise_pred_skip_layers) * self._skip_layer_guidance_scale)
 

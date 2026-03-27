@@ -22,7 +22,7 @@ class GuidanceMethod(ABC):
         pass
 
     @abstractmethod
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
         """
         Compute the guided model prediction for one denoising step.
         """
@@ -31,33 +31,24 @@ class GuidanceMethod(ABC):
 
 class ConstantGuidanceMethod(GuidanceMethod):
 
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
-                                                             prompt_embeds=ctx.prompt_embeds, 
-                                                             pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
-                                                             do_cfg=True)
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=True)
         
         return constant_guidance(pred_uncond, pred_cond, ctx.guidance_scale)
 
 
 class LinearGuidanceMethod(GuidanceMethod):
 
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
-                                                             prompt_embeds=ctx.prompt_embeds,
-                                                             pooled_prompt_embeds=ctx.pooled_prompt_embeds,
-                                                             do_cfg=True)
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=True)
         
         return linear_guidance(pred_uncond, pred_cond, ctx.guidance_scale, ctx.normalized_time())
 
 
 class ExponentialGuidanceMethod(GuidanceMethod):
 
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
-                                                             prompt_embeds=ctx.prompt_embeds, 
-                                                             pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
-                                                             do_cfg=True)
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=True)
         
         return exponential_guidance(pred_uncond, pred_cond, ctx.guidance_scale, ctx.normalized_time())
 
@@ -74,11 +65,8 @@ class APGGuidanceMethod(GuidanceMethod):
     def reset(self):
         self.momentum_buffer = MomentumBuffer(self.momentum_value)
 
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
-                                                             prompt_embeds=ctx.prompt_embeds,
-                                                             pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
-                                                             do_cfg=True)
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=True)
         
         apg_state = {"momentum_buffer": self.momentum_buffer, "eta": self.eta, "norm_threshold": self.norm_threshold}
 
@@ -92,27 +80,21 @@ class RectifiedPPGuidanceMethod(GuidanceMethod):
         self.lambda_max = lambda_max
         self.gamma = gamma
 
-    def _compute_dt(self, ctx: GuidanceContext) -> torch.Tensor:
+    def _compute_dt(self, ctx: CFGContext) -> torch.Tensor:
         if ctx.step_index < len(ctx.timesteps) - 1:
             return ctx.timesteps[ctx.step_index] - ctx.timesteps[ctx.step_index + 1]
         return ctx.timesteps[ctx.step_index]
 
-    def _compute_alpha_t(self, ctx: GuidanceContext) -> torch.Tensor:
+    def _compute_alpha_t(self, ctx: CFGContext) -> torch.Tensor:
         return self.lambda_max*(1-ctx.normalized_time())**self.gamma
 
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        v_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
-                                             prompt_embeds=ctx.original_prompt_embeds, 
-                                             pooled_prompt_embeds=ctx.original_pooled_prompt_embeds, 
-                                             do_cfg=False)
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
+        v_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=False)
         dt = self._compute_dt(ctx)
         x_mid = ctx.latents + 0.5 * dt * v_cond
         t_mid = ctx.t - 0.5 * dt
 
-        v_uncond_mid, v_cond_mid = ctx.pipeline._predict_model(latents=x_mid, t=t_mid, 
-                                                               prompt_embeds=ctx.prompt_embeds, 
-                                                               pooled_prompt_embeds=ctx.pooled_prompt_embeds,
-                                                               do_cfg=True)
+        v_uncond_mid, v_cond_mid = ctx.pipeline._predict_model(latents=x_mid, t=t_mid, do_cfg=True)
         alpha_t = self._compute_alpha_t(ctx)
         return v_cond + alpha_t * (v_cond_mid - v_uncond_mid)
 
@@ -124,11 +106,8 @@ class ZeroStarGuidanceMethod(GuidanceMethod):
         self.zero_steps = zero_steps
         self.use_zero_init = use_zero_init
 
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
-                                                             prompt_embeds=ctx.prompt_embeds,
-                                                             pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
-                                                             do_cfg=True)
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=True)
         
         return zero_star_guidance(pred_uncond, pred_cond, ctx.guidance_scale, 
                                   self.zero_steps, self.use_zero_init, ctx.step_index)
@@ -144,11 +123,8 @@ class SlidingModeControlGuidanceMethod(GuidanceMethod):
     def reset(self):
         self.guidance_term_buffer = GuidanceTermBuffer()
     
-    def predict_velocity_field(self, ctx: GuidanceContext) -> torch.Tensor:
-        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, 
-                                                        prompt_embeds=ctx.prompt_embeds,
-                                                        pooled_prompt_embeds=ctx.pooled_prompt_embeds, 
-                                                        do_cfg=True)
+    def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
+        pred_uncond, pred_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=True)
                                                         
         return sliding_mode_control_guidance(pred_uncond, pred_cond, ctx.guidance_scale, 
                                              self.lambda_param, self.k, self.guidance_term_buffer)
@@ -179,41 +155,35 @@ def build_guidance_method(guidance_type: str, params: Optional[dict[str, Any]] =
     if guidance_type == "SMC":
         return SlidingModeControlGuidanceMethod(**params)
 
-
 @dataclass
-class GuidanceContext:
-    """
-    Context object passed to a guidance method for one denoising step.
-
-    It stores references to the current pipeline state and tensors needed
-    to predict the guided velocity field / noise prediction.
-    """
-
-    # Pipeline reference (used to access helper methods such as _predict_model)
+class CFGContext:
     pipeline: Any
-
-    # Current denoising state
     latents: torch.Tensor
     t: torch.Tensor
-    timestep: torch.Tensor
     step_index: int
     timesteps: torch.Tensor
-
-    # Embeddings used for CFG forward
-    prompt_embeds: torch.Tensor
-    pooled_prompt_embeds: torch.Tensor
-
-    # Conditional-only embeddings (before concatenation with negative prompt)
-    original_prompt_embeds: Optional[torch.Tensor] = None
-    original_pooled_prompt_embeds: Optional[torch.Tensor] = None
-
-    # Global parameters
-    guidance_scale: float = 1.0
-    joint_attention_kwargs: Optional[dict[str, Any]] = None
-    do_classifier_free_guidance: bool = True
+    guidance_scale: float
 
     def normalized_time(self) -> torch.Tensor:
         """
         Return normalized time t / t0.
         """
         return self.t / self.timesteps[0]
+
+@dataclass
+class SD3StepState:
+    prompt_embeds: torch.Tensor
+    pooled_prompt_embeds: torch.Tensor
+    original_prompt_embeds: torch.Tensor
+    original_pooled_prompt_embeds: torch.Tensor
+    skip_guidance_layers: bool
+
+@dataclass
+class FluxStepState:
+    prompt_embeds: torch.Tensor
+    latent_ids: torch.Tensor
+    text_ids: torch.Tensor
+    neg_prompt_embeds: torch.Tensor
+    neg_text_ids: torch.Tensor
+    image_latents: torch.Tensor | None
+    image_latent_ids: torch.Tensor | None
