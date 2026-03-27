@@ -53,7 +53,7 @@ scores = benchmark(
     seed=args.seed,
     guidance_parameters=args.guidance_parameters,
     keep_images=args.keep_images,
-    save_path=args.save_path
+    save_result_path=args.save_path
 )
 
 print(scores)

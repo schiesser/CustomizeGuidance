@@ -1,17 +1,17 @@
 #!/bin/bash
 
 #model
-MODEL="SD3"
+MODEL="flux2Klein"
 
 #path
-MODEL_PATH="/home/schiesser/models/sd35_medium"
+MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
 DATA_IMAGES_PATH="/home/schiesser/datasets/MS_COCO/val2017"
 DATA_ANNOTATIONS_PATH="/home/schiesser/datasets/MS_COCO/annotations/captions_val2017.json"
 
 CLIP_MODEL_PATH="/home/schiesser/models/clip"
 BLIP_MODEL_PATH="/home/schiesser/models/blip"
 
-SAVE_PATH="/home/schiesser/"
+SAVE_PATH="/home/schiesser"
 
 # images size / number
 NUM_IMAGES=10
@@ -19,14 +19,14 @@ HEIGHT=256
 WIDTH=256
 
 # steps and guidance scale
-NUM_STEPS=10
-GUIDANCE_SCALE=7.0
-GUIDANCE_TYPES=("constant" "linear" "exponential" "APG" "zero_star" "rectified_pp" "SMC")
-LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.0, "eta": -0.75, "norm_threshold": 15.0}' '{"zero_steps": 0, "use_zero_init": false '} '{"lambda_max": 1.3 , "gamma": 2.0 }' '{"lambda_param": 1.5 , "k": 2.0}')
+NUM_STEPS=10                   #use 50 for FLUX, 40 for SD
+GUIDANCE_SCALE=7.0              #use 4.0 for FLUX, 4.5 for SD
+GUIDANCE_TYPES=("constant" "linear")
+LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.3, "eta": -0.75, "norm_threshold": 15.0}' '{"zero_steps": 1, "use_zero_init": 1 '} '{"lambda_max": 1.3 , "gamma": 2.0 }' '{"lambda_param": 1.5 , "k": 0.2}')
 
 # score 
 SCORES=("FID" "CLIP" "IS" "BLIP")
-KEEP_IMAGES=false
+KEEP_IMAGES=true
 
 # reproductibility
 RUN_ID="test_run"

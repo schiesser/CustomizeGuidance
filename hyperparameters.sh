@@ -9,16 +9,16 @@ DATA_ANNOTATIONS_PATH="/home/schiesser/datasets/MS_COCO/annotations/captions_val
 CLIP_MODEL_PATH="/home/schiesser/models/clip"
 BLIP_MODEL_PATH="/home/schiesser/models/blip"
 
-SAVE_PATH="/home/schiesser/"
+SAVE_PATH="/home/schiesser"
 
 NUM_IMAGES=10
 HEIGHT=256
 WIDTH=256
 
 NUM_STEPS=10
-GUIDANCE_SCALE=7.0
+GUIDANCE_SCALE=4.0
 
-GUIDANCE_TYPES=("constant" "linear" "exponential" "APG" "zero_star" "rectified_pp" "SMC")
+GUIDANCE_TYPES=("APG" "zero_star" "rectified_pp" "SMC")
 
 SCORES=("FID" "CLIP" "IS" "BLIP")
 KEEP_IMAGES=false
@@ -32,7 +32,7 @@ do
     echo "Running hyperparameter search for: $GUIDANCE_METHOD"
     echo "========================================="
 
-    python scripts/hyperparameter_search.py \
+    python scripts/hyperparameters.py \
         --model "$MODEL" \
         --guidance_method "$GUIDANCE_METHOD" \
         --model_path "$MODEL_PATH" \

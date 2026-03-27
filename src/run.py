@@ -7,7 +7,7 @@ from tqdm import tqdm
 import pickle
 import shutil
 import itertools
-from .hyperparameters_grid import HYPERPARAMETER_GRID
+from scripts.hyperparameters_grid import HYPERPARAMETER_GRID
 import pandas as pd
 
 def load_model(model: str, model_path: str, guidance_type: str, guidance_params: dict = None):
@@ -163,10 +163,10 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
     if not keep_images:
         shutil.rmtree(f"outputs/{run_id}")
 
-    Path(f"{save_result_path}/{run_id}").mkdir(parents=True, exist_ok=True)
-    save_file = open(f"{save_result_path}/{run_id}", 'wb')
-    pickle.dump(full_score, save_file)
-    save_file.close()
+    output_dir = Path(save_result_path) / run_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with open(output_dir / "results.pkl", "wb") as f:
+        pickle.dump(full_score, f)
 
     return full_score
 
@@ -288,9 +288,9 @@ def hyperparameter_search(model: str, guidance_method: str, model_path: str,
 
     df_results = pd.DataFrame(results)
 
-    Path(f"{save_result_path}").mkdir(parents=True, exist_ok=True)
-    output_csv_path = f"{save_result_path}/{run_id}/{guidance_method}_hyperparameter.csv"
-    df_results.to_csv(output_csv_path, index=False)
+    output_dir = Path(save_result_path) / run_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    df_results.to_csv(output_dir / f"{guidance_method}_hyperparameter.csv", index=False)
 
     return df_results
 

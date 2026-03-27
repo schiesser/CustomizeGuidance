@@ -6,8 +6,8 @@ HYPERPARAMETER_GRID = {
     "exponential": {},
 
     "APG": {
-        "momentum_value": [0.0, 0.3, 0.6],
-        "eta": [-1.0, -0.75, -0.5],
+        "momentum_value": [0.0],
+        "eta": [-1.0],
         "norm_threshold": [10.0, 15.0, 20.0],
     },
 

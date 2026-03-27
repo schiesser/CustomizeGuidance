@@ -61,7 +61,7 @@ df_results = hyperparameter_search(
     blip_model_path=args.blip_model_path,
     seed=args.seed,
     keep_images=args.keep_images,
-    save_path = args.save_path
+    save_result_path = args.save_path
 )
 
 print(df_results)
