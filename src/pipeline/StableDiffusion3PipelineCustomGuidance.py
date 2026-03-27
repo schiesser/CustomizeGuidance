@@ -1,6 +1,7 @@
 import torch
 import importlib
 from typing import Callable, Any
+from dataclasses import dataclass
 
 from diffusers import StableDiffusion3Pipeline
 from diffusers.image_processor import PipelineImageInput
@@ -20,6 +21,14 @@ if is_torch_xla_available():
         xm = None
 
 XLA_AVAILABLE = xm is not None
+
+@dataclass
+class SD3StepState:
+    prompt_embeds: torch.Tensor
+    pooled_prompt_embeds: torch.Tensor
+    original_prompt_embeds: torch.Tensor
+    original_pooled_prompt_embeds: torch.Tensor
+    skip_guidance_layers: bool
 
 class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
@@ -56,7 +65,7 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
         return
 
-    def _predict_model(self, latents, t, do_cfg, use_original=False):
+    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, do_cfg: bool, use_original: bool = False):
         if use_original:
             embeds = self.sd_ctx.original_prompt_embeds
             pooled = self.sd_ctx.original_pooled_prompt_embeds

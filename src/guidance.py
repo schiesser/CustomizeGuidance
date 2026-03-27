@@ -89,7 +89,7 @@ class RectifiedPPGuidanceMethod(GuidanceMethod):
         return self.lambda_max*(1-ctx.normalized_time())**self.gamma
 
     def predict_velocity_field(self, ctx: CFGContext) -> torch.Tensor:
-        v_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=False)
+        v_cond = ctx.pipeline._predict_model(latents=ctx.latents, t=ctx.t, do_cfg=False, use_original = True)
         dt = self._compute_dt(ctx)
         x_mid = ctx.latents + 0.5 * dt * v_cond
         t_mid = ctx.t - 0.5 * dt
@@ -169,21 +169,3 @@ class CFGContext:
         Return normalized time t / t0.
         """
         return self.t / self.timesteps[0]
-
-@dataclass
-class SD3StepState:
-    prompt_embeds: torch.Tensor
-    pooled_prompt_embeds: torch.Tensor
-    original_prompt_embeds: torch.Tensor
-    original_pooled_prompt_embeds: torch.Tensor
-    skip_guidance_layers: bool
-
-@dataclass
-class FluxStepState:
-    prompt_embeds: torch.Tensor
-    latent_ids: torch.Tensor
-    text_ids: torch.Tensor
-    neg_prompt_embeds: torch.Tensor
-    neg_text_ids: torch.Tensor
-    image_latents: torch.Tensor | None
-    image_latent_ids: torch.Tensor | None

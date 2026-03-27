@@ -1,5 +1,6 @@
 import importlib
 from typing import Any, Callable
+from dataclasses import dataclass
 
 import numpy as np
 import PIL
@@ -23,6 +24,15 @@ if is_torch_xla_available():
 
 XLA_AVAILABLE = xm is not None
 
+@dataclass
+class FluxStepState:
+    prompt_embeds: torch.Tensor
+    latent_ids: torch.Tensor
+    text_ids: torch.Tensor
+    neg_prompt_embeds: torch.Tensor
+    neg_text_ids: torch.Tensor
+    image_latents: torch.Tensor | None
+    image_latent_ids: torch.Tensor | None
 
 class Flux2KleinPipelineCustomGuidance(Flux2KleinPipeline):
     # Important: need to have is_distilled = False,
@@ -55,7 +65,7 @@ class Flux2KleinPipelineCustomGuidance(Flux2KleinPipeline):
         self.guidance_method_initialized = True
         return
 
-    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, do_cfg: bool):
+    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, do_cfg: bool, use_original: bool = False):
         timestep = t.expand(latents.shape[0]).to(latents.dtype)
 
         latent_model_input = latents.to(self.transformer.dtype)
