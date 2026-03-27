@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # LIST OF AVAILABLE MODEL / PERF METRICS / CFG METHOD
-implemented_generative_model = {"SD3"}
+implemented_generative_model = {"SD3", "flux2Klein"}
 
 implemented_performance_metrics = {"FID", "CLIP",
                                     "IS", "BLIP"}

@@ -24,6 +24,7 @@ LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.0, "eta": -0.75, "norm_thre
 
 # score 
 SCORES=("FID" "CLIP" "IS" "BLIP")
+KEEP_IMAGES=false
 
 # reproductibility
 RUN_ID="test_run"
@@ -45,4 +46,5 @@ python scripts/benchmark.py \
     --run_id "$RUN_ID" \
     --clip_model_path "$CLIP_MODEL_PATH" \
     --blip_model_path "$BLIP_MODEL_PATH" \
-    --seed $SEED 
+    --seed $SEED \
+    --keep_images $KEEP_IMAGES

@@ -1,9 +1,10 @@
-from .pipeline import StableDiffusion3PipelineCustomGuidance
+from .pipeline import StableDiffusion3PipelineCustomGuidance, Flux2KleinPipelineCustomGuidance
 from .error import *
 import torch
 from .data_utils import extract_image_info
 from .performance import compute_fid, compute_is, compute_clip_score, compute_blip_score
 from tqdm import tqdm
+import pickle
 import shutil
 
 def load_model(model: str, model_path: str, guidance_type: str, guidance_params: dict = None):
@@ -25,10 +26,15 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
     check_existing_guidance_method(guidance_type)
 
     if model == "SD3":
-        sd3 = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.float32)
-        sd3.configure_guidance(guidance_type=guidance_type, guidance_params=guidance_params)
-        sd3.to(torch_device)
-    return sd3
+        pipeline = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.float32)
+    
+    if model == "FLUX2Klein":
+        pipeline = Flux2KleinPipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.float32)
+    
+    pipeline.configure_guidance(guidance_type=guidance_type, guidance_params=guidance_params)
+    pipeline.to(torch_device)
+
+    return pipeline
 
 def generate_image(model_pipeline, prompt: str, height: int = 512, width: int = 512,
                    num_inference_steps: int = 28, guidance_scale: float = 7):
@@ -104,9 +110,6 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
     Returns:
         dict: Dictionary containing the scores for each guidance method and each evaluation metric.
     """
-
-
-    print(guidance_parameters)
     # Validate inputs
     check_model_downloaded_path(model_path)
     check_existing_generative_model(model)
@@ -134,7 +137,7 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
 
         pipeline_model = load_model(model, model_path, guidance_method, guidance_parameters[i] if guidance_parameters is not None else None)
 
-        for idx, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images, desc=f"    [{guidance_method}] Generating images"):
+        for _, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images, desc=f"    [{guidance_method}] Generating images"):
 
             # for FID (keep same dimension between original and generated images)
             if "FID" in score_list:
@@ -177,5 +180,9 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
 
     if not keep_images:
         shutil.rmtree(f"outputs/{run_id}")
+
+    save_file = open(run_id, 'wb')
+    pickle.dump(full_score, save_file)
+    save_file.close()
 
     return full_score
