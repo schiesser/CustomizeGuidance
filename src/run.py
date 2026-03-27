@@ -90,6 +90,8 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
     """
     Run a benchmark:
     retrieve scores for guidances_types for a given generative model and a given dataset.
+    The way the prompt are retrieved work for MS-COCO dataset.
+    For other dataset the function "extract_image_info" need to be changed.
 
     Args:
         model (str): Generative model to use. Available: ['SD3'].
