@@ -56,15 +56,6 @@ class Flux2KleinPipelineCustomGuidance(Flux2KleinPipeline):
         return
 
     def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, do_cfg: bool):
-        """
-        Single forward pass through the transformer.
-
-        Handles optional image conditioning (reference latents) by concatenating
-        them to the latent sequence before the forward pass, then slices the
-        prediction back to the denoising latent length.
-
-        Returns the raw noise prediction tensor (no CFG applied).
-        """
         timestep = t.expand(latents.shape[0]).to(latents.dtype)
 
         latent_model_input = latents.to(self.transformer.dtype)
@@ -74,28 +65,28 @@ class Flux2KleinPipelineCustomGuidance(Flux2KleinPipeline):
             latent_model_input = torch.cat([latents, self.flux_ctx.image_latents], dim=1).to(self.transformer.dtype)
             latent_image_ids = torch.cat([self.flux_ctx.latent_ids, self.flux_ctx.image_latent_ids], dim=1)
 
+        # cond FIRST — mirrors diffusers order
+        with self.transformer.cache_context("cond"):
+            noise_pred_cond = self.transformer(hidden_states=latent_model_input, timestep=timestep / 1000,
+                                               guidance=None, encoder_hidden_states=self.flux_ctx.prompt_embeds,
+                                               txt_ids=self.flux_ctx.text_ids, img_ids=latent_image_ids,
+                                               joint_attention_kwargs=self.attention_kwargs,return_dict=False)[0]
+            
+        noise_pred_cond = noise_pred_cond[:, : latents.size(1)]
+
+        if not do_cfg:
+            return noise_pred_cond
+
+        # uncond SECOND
         with self.transformer.cache_context("uncond"):
             noise_pred_uncond = self.transformer(hidden_states=latent_model_input, timestep=timestep / 1000,
-                                        guidance=None, encoder_hidden_states=self.flux_ctx.neg_prompt_embeds,
-                                        txt_ids=self.flux_ctx.text_ids, img_ids=latent_image_ids,
-                                        joint_attention_kwargs=self.attention_kwargs,
-                                        return_dict=False)[0]
-        noise_pred_uncond = noise_pred_uncond[:, : latents.size(1)]
+                                                 guidance=None, encoder_hidden_states=self.flux_ctx.neg_prompt_embeds,
+                                                 txt_ids=self.flux_ctx.neg_text_ids, img_ids=latent_image_ids,
+                                                 joint_attention_kwargs=self.attention_kwargs, return_dict=False)[0]
             
-        if do_cfg:
-            with self.transformer.cache_context("cond"): 
-                noise_pred_cond = self.transformer(hidden_states=latent_model_input, timestep=timestep / 1000,
-                                            guidance=None, encoder_hidden_states=self.flux_ctx.prompt_embeds,
-                                            txt_ids=self.flux_ctx.text_ids, img_ids=latent_image_ids,
-                                            joint_attention_kwargs=self.attention_kwargs,
-                                            return_dict=False)[0]
-                
-            noise_pred_cond = noise_pred_cond[:, : latents.size(1)]
+        noise_pred_uncond = noise_pred_uncond[:, : latents.size(1)]
 
-            return noise_pred_uncond, noise_pred_cond
-        
-        else:
-            return noise_pred_uncond
+        return noise_pred_uncond, noise_pred_cond
 
     @torch.no_grad()
     def __call__(

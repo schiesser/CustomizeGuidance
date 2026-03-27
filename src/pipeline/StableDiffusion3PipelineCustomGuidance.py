@@ -56,21 +56,26 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
 
         return
 
-    def _predict_model(self, latents: torch.Tensor, t: torch.Tensor, do_cfg: bool):
+    def _predict_model(self, latents, t, do_cfg, use_original=False):
+        if use_original:
+            embeds = self.sd_ctx.original_prompt_embeds
+            pooled = self.sd_ctx.original_pooled_prompt_embeds
+        else:
+            embeds = self.sd_ctx.prompt_embeds
+            pooled = self.sd_ctx.pooled_prompt_embeds
 
         latent_model_input = torch.cat([latents] * 2) if do_cfg else latents
         timestep = t.expand(latent_model_input.shape[0])
 
-        pred = self.transformer(hidden_states=latent_model_input, timestep=timestep, 
-                                encoder_hidden_states=self.sd_ctx.prompt_embeds,
-                                pooled_projections=self.sd_ctx.pooled_prompt_embeds, 
-                                joint_attention_kwargs=self.joint_attention_kwargs, return_dict=False, 
-                                skip_layers=self.sd_ctx.guidance_ctx.skip_layers)[0]
-
+        pred = self.transformer(hidden_states=latent_model_input, timestep=timestep,
+                                encoder_hidden_states=embeds,
+                                pooled_projections=pooled,
+                                joint_attention_kwargs=self.joint_attention_kwargs,
+                                return_dict=False,
+                                skip_layers=self.sd_ctx.skip_guidance_layers if use_original else None)[0]
         if do_cfg:
             pred_uncond, pred_cond = pred.chunk(2)
             return pred_uncond, pred_cond
-
         return pred
         
     @torch.no_grad()
@@ -386,11 +391,9 @@ class StableDiffusion3PipelineCustomGuidance(StableDiffusion3Pipeline):
                     )
 
                     if skip_guidance_layers is not None and should_skip_layers:
-                        noise_pred_skip_layers = self._predict_model(latents=guidance_ctx.latents, t=guidance_ctx.t, do_cfg=False)
-
+                        noise_pred_skip = self._predict_model(latents=guidance_ctx.latents, t=guidance_ctx.t, do_cfg=False, use_original=True)
                         _, pred_cond = self._predict_model(latents=guidance_ctx.latents, t=guidance_ctx.t, do_cfg=True)
-
-                        noise_pred = (noise_pred + (pred_cond - noise_pred_skip_layers) * self._skip_layer_guidance_scale)
+                        noise_pred = noise_pred + (pred_cond - noise_pred_skip) * self._skip_layer_guidance_scale
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents_dtype = latents.dtype
