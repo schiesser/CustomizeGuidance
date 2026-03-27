@@ -31,7 +31,7 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
     if model == "SD3":
         pipeline = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.float32)
     
-    if model == "FLUX2Klein":
+    if model == "flux2Klein":
         pipeline = Flux2KleinPipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.float32)
     
     pipeline.configure_guidance(guidance_type=guidance_type, guidance_params=guidance_params)

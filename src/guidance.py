@@ -163,6 +163,7 @@ class CFGContext:
     step_index: int
     timesteps: torch.Tensor
     guidance_scale: float
+    timestep: torch.Tensor
 
     def normalized_time(self) -> torch.Tensor:
         """

@@ -13,7 +13,7 @@ from diffusers.utils import is_torch_xla_available
 from diffusers.pipelines.flux2.pipeline_output import Flux2PipelineOutput
 
 from ..guidance import build_guidance_method
-from ..guidance import CFGContext, FluxStepState
+from ..guidance import CFGContext
 
 xm = None
 if is_torch_xla_available():

@@ -11,7 +11,7 @@ from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import c
 from diffusers.utils import is_torch_xla_available
 
 from ..guidance import build_guidance_method
-from ..guidance import CFGContext, SD3StepState
+from ..guidance import CFGContext
 
 xm = None
 if is_torch_xla_available():

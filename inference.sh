@@ -1,7 +1,7 @@
 #!/bin/bash
 
-MODEL="SD3"
-MODEL_PATH="/home/schiesser/models/sd35_medium"
+MODEL="flux2Klein"
+MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
 
 PROMPT="a beautiful sunset over the mountains"
 
@@ -14,7 +14,6 @@ GUIDANCE_TYPE="APG"
 GUIDANCE_PARAMETERS='{"momentum_value": 0.3, "eta": -0.75, "norm_threshold": 15.0}'
 
 OUTPUT="outputs/output.png"
-PLOT=false
 
 python scripts/inference.py \
     --model "$MODEL" \
@@ -26,5 +25,4 @@ python scripts/inference.py \
     --num_inference_steps $NUM_STEPS \
     --guidance_scale $GUIDANCE_SCALE \
     --guidance_parameters "$GUIDANCE_PARAMETERS" \
-    --output "$OUTPUT" \
-    --plot $PLOT
+    --output "$OUTPUT"

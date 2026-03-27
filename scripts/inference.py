@@ -36,4 +36,5 @@ image = run(
     )
 image.save(args.output)
 
+
 print(f"Image saved at: {args.output}.")
