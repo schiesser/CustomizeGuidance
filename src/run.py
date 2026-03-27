@@ -89,7 +89,7 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
               data_images_path: str, num_inference_steps: int = 28, guidance_scale: float = 7, 
               score_list: list[str] = ["FID"], number_of_images: int = 5000, run_id: str = "test_run", 
               clip_model_path: str = None, blip_model_path: str = None, seed: int = 13, height:int=512,
-              width:int=512, guidance_parameters: list[dict] = None, keep_images: bool = False):
+              width:int=512, guidance_parameters: list[dict] = None, keep_images: bool = False, save_result_path:str=""):
     """
     Run a benchmark:
     retrieve scores for guidances_types for a given generative model and a given dataset.
@@ -163,7 +163,8 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
     if not keep_images:
         shutil.rmtree(f"outputs/{run_id}")
 
-    save_file = open(run_id, 'wb')
+    Path(f"{save_result_path}/{run_id}").mkdir(parents=True, exist_ok=True)
+    save_file = open(f"{save_result_path}/{run_id}", 'wb')
     pickle.dump(full_score, save_file)
     save_file.close()
 
@@ -176,7 +177,7 @@ def hyperparameter_search(model: str, guidance_method: str, model_path: str,
                           run_id: str = "test_run", clip_model_path: str = None,
                           blip_model_path: str = None, seed: int = 13,
                           height: int = 512, width: int = 512,
-                          keep_images: bool = False):
+                          keep_images: bool = False, save_result_path:str=""):
     """
     Run a hyperparameter search for one guidance method.
 
@@ -287,7 +288,8 @@ def hyperparameter_search(model: str, guidance_method: str, model_path: str,
 
     df_results = pd.DataFrame(results)
 
-    output_csv_path = f"{guidance_method}_hyperparameter.csv"
+    Path(f"{save_result_path}").mkdir(parents=True, exist_ok=True)
+    output_csv_path = f"{save_result_path}/{run_id}/{guidance_method}_hyperparameter.csv"
     df_results.to_csv(output_csv_path, index=False)
 
     return df_results

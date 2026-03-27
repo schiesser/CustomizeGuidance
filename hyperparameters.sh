@@ -9,6 +9,8 @@ DATA_ANNOTATIONS_PATH="/home/schiesser/datasets/MS_COCO/annotations/captions_val
 CLIP_MODEL_PATH="/home/schiesser/models/clip"
 BLIP_MODEL_PATH="/home/schiesser/models/blip"
 
+SAVE_PATH="/home/schiesser/"
+
 NUM_IMAGES=10
 HEIGHT=256
 WIDTH=256
@@ -46,7 +48,8 @@ do
         --clip_model_path "$CLIP_MODEL_PATH" \
         --blip_model_path "$BLIP_MODEL_PATH" \
         --seed $SEED \
-        --keep_images $KEEP_IMAGES
+        --keep_images $KEEP_IMAGES \
+        --save_path $SAVE_PATH
 
     echo "Finished: $GUIDANCE_METHOD"
     echo ""

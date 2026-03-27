@@ -17,6 +17,7 @@ benchmark_parser = argparse.ArgumentParser(description='T2I Benchmark.')
 benchmark_parser.add_argument("--model", type=str, default="SD3")
 benchmark_parser.add_argument("--guidance_types", type=str, nargs="+", required=True)
 benchmark_parser.add_argument("--model_path", type=str, required=True)
+benchmark_parser.add_argument("--save_path", type=str, required=True)
 benchmark_parser.add_argument("--data_annotations_path", type=str, required=True)
 benchmark_parser.add_argument("--data_images_path", type=str, required=True)
 benchmark_parser.add_argument("--height", type=int, default=512)
@@ -51,7 +52,8 @@ scores = benchmark(
     blip_model_path=args.blip_model_path,
     seed=args.seed,
     guidance_parameters=args.guidance_parameters,
-    keep_images=args.keep_images
+    keep_images=args.keep_images,
+    save_path=args.save_path
 )
 
 print(scores)

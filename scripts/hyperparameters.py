@@ -35,6 +35,8 @@ hyperparam_parser.add_argument("--run_id", type=str, default="test_run")
 hyperparam_parser.add_argument("--clip_model_path", type=str, default=None)
 hyperparam_parser.add_argument("--blip_model_path", type=str, default=None)
 
+hyperparam_parser.add_argument("--save_path", type=str, required=True)
+
 hyperparam_parser.add_argument("--seed", type=int, default=13)
 hyperparam_parser.add_argument("--keep_images", type=str2bool, default=False)
 
@@ -58,7 +60,8 @@ df_results = hyperparameter_search(
     clip_model_path=args.clip_model_path,
     blip_model_path=args.blip_model_path,
     seed=args.seed,
-    keep_images=args.keep_images
+    keep_images=args.keep_images,
+    save_path = args.save_path
 )
 
 print(df_results)
