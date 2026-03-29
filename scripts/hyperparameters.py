@@ -1,13 +1,7 @@
 import argparse
+from scripts.utils import str2bool
 
 from customguidance import hyperparameter_search
-
-
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    return v.lower() in ("true", "1", "yes", "y")
-
 
 hyperparam_parser = argparse.ArgumentParser(description='T2I Hyperparameter Search.')
 
