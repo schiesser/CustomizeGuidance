@@ -1,5 +1,5 @@
 import argparse
-from scripts.utils import str2bool
+from utils import str2bool
 
 from customguidance import hyperparameter_search
 

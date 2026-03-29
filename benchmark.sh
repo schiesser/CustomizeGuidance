@@ -5,7 +5,8 @@ MODEL="SD3"
 #MODEL="flux2Klein"
 
 #path
-MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
+MODEL_PATH="/home/schiesser/models/sd35_medium"
+#MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
 DATA_IMAGES_PATH="/home/schiesser/datasets/MS_COCO/val2017"
 DATA_ANNOTATIONS_PATH="/home/schiesser/datasets/MS_COCO/annotations/captions_val2017.json"
 
@@ -23,12 +24,12 @@ WIDTH=1024
 NUM_STEPS=40
 GUIDANCE_SCALE=4.5
 #GUIDANCE_SCALE=4.0
-GUIDANCE_TYPES=("constant" "linear")
-LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.3, "eta": -0.75, "norm_threshold": 15.0}' '{"zero_steps": 1, "use_zero_init": 1 '} '{"lambda_max": 1.3 , "gamma": 2.0 }' '{"lambda_param": 1.5 , "k": 0.2}')
+GUIDANCE_TYPES=("constant" "linear" "exponential" "APG" "zero_star" "rectified_pp" "SMC")
+LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.5, "eta": 0.25, "norm_threshold": 10.0}' '{"zero_steps": 1, "use_zero_init": true}' '{"lambda_max": 1.3 , "gamma": 2.0 }' '{"lambda_param": 5 , "k": 0.05}')
 
 # score 
 SCORES=("FID" "CLIP" "IS" "BLIP")
-KEEP_IMAGES=true
+KEEP_IMAGES=false
 
 # reproductibility
 RUN_ID="test_run"
