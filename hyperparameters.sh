@@ -1,8 +1,10 @@
 #!/bin/bash
 
 MODEL="SD3"
+#MODEL="flux2Klein"
 
 MODEL_PATH="/home/schiesser/models/sd35_medium"
+#MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
 DATA_IMAGES_PATH="/home/schiesser/datasets/MS_COCO/val2017"
 DATA_ANNOTATIONS_PATH="/home/schiesser/datasets/MS_COCO/annotations/captions_val2017.json"
 
@@ -11,19 +13,21 @@ BLIP_MODEL_PATH="/home/schiesser/models/blip"
 
 SAVE_PATH="/home/schiesser"
 
-NUM_IMAGES=10
-HEIGHT=256
-WIDTH=256
+NUM_IMAGES=5000
+HEIGHT=1024
+WIDTH=1024
 
-NUM_STEPS=10
-GUIDANCE_SCALE=4.0
+NUM_STEPS=40
+GUIDANCE_SCALE=4.5
+#GUIDANCE_SCALE=4.0
 
 GUIDANCE_TYPES=("APG" "zero_star" "rectified_pp" "SMC")
 
 SCORES=("FID" "CLIP" "IS" "BLIP")
 KEEP_IMAGES=false
 
-RUN_ID="test_hparam"
+RUN_ID="hparams_sd3"
+#RUN_ID="hparams_flux2"
 SEED=13
 
 for GUIDANCE_METHOD in "${GUIDANCE_TYPES[@]}"

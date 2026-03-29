@@ -1,15 +1,18 @@
 #!/bin/bash
 
-MODEL="flux2Klein"
-MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
+MODEL="SD3"
+#MODEL="flux2Klein"
+MODEL_PATH="/home/schiesser/models/sd35_medium"
+#MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
 
 PROMPT="a beautiful sunset over the mountains"
 
-HEIGHT=512
-WIDTH=512
+HEIGHT=1024
+WIDTH=1024
 
-NUM_STEPS=28
-GUIDANCE_SCALE=7.0
+NUM_STEPS=40
+GUIDANCE_SCALE=4.5
+#GUIDANCE_SCALE=4.0
 GUIDANCE_TYPE="APG"
 GUIDANCE_PARAMETERS='{"momentum_value": 0.3, "eta": -0.75, "norm_threshold": 15.0}'
 

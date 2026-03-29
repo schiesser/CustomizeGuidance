@@ -1,7 +1,8 @@
 #!/bin/bash
 
 #model
-MODEL="flux2Klein"
+MODEL="SD3"
+#MODEL="flux2Klein"
 
 #path
 MODEL_PATH="/home/schiesser/models/flux2_klein_base_4B"
@@ -15,12 +16,13 @@ SAVE_PATH="/home/schiesser"
 
 # images size / number
 NUM_IMAGES=10
-HEIGHT=256
-WIDTH=256
+HEIGHT=1024
+WIDTH=1024
 
 # steps and guidance scale
-NUM_STEPS=10                   #use 50 for FLUX, 40 for SD
-GUIDANCE_SCALE=7.0              #use 4.0 for FLUX, 4.5 for SD
+NUM_STEPS=40
+GUIDANCE_SCALE=4.5
+#GUIDANCE_SCALE=4.0
 GUIDANCE_TYPES=("constant" "linear")
 LIST_GUIDANCE_PARAMS=("" "" "" '{"momentum_value": 0.3, "eta": -0.75, "norm_threshold": 15.0}' '{"zero_steps": 1, "use_zero_init": 1 '} '{"lambda_max": 1.3 , "gamma": 2.0 }' '{"lambda_param": 1.5 , "k": 0.2}')
 
