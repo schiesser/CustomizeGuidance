@@ -9,6 +9,8 @@ import shutil
 import itertools
 from scripts.hyperparameters_grid import HYPERPARAMETER_GRID
 import pandas as pd
+from diffusers.utils import logging as diffusers_logging
+from transformers.utils.logging import disable_progress_bar
 
 def load_model(model: str, model_path: str, guidance_type: str, guidance_params: dict = None):
     """
@@ -28,6 +30,9 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
     check_existing_generative_model(model)
     check_existing_guidance_method(guidance_type)
 
+    diffusers_logging.disable_progress_bar()
+    disable_progress_bar()
+
     if model == "SD3":
         pipeline = StableDiffusion3PipelineCustomGuidance.from_pretrained(model_path, torch_dtype=torch.float32)
     
@@ -36,6 +41,8 @@ def load_model(model: str, model_path: str, guidance_type: str, guidance_params:
     
     pipeline.configure_guidance(guidance_type=guidance_type, guidance_params=guidance_params)
     pipeline.to(torch_device)
+
+    pipeline.set_progress_bar_config(disable=True)
 
     return pipeline
 
@@ -142,7 +149,7 @@ def benchmark(model: str, guidance_types: list[str], model_path: str, data_annot
 
         pipeline_model = load_model(model, model_path, guidance_method, guidance_parameters[i] if guidance_parameters is not None else None)
 
-        for _, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images, desc=f"    [{guidance_method}] Generating images"):
+        for _, row in images_info.iloc[:number_of_images].iterrows():
 
             # for FID (keep same dimension between original and generated images)
             if "FID" in score_list:
@@ -251,7 +258,7 @@ def hyperparameter_search(model: str, guidance_method: str, model_path: str,
             path_original_fid = None
             path_generated_fid = None
 
-        for _, row in tqdm(images_info.iloc[:number_of_images].iterrows(), total=number_of_images, desc=f"    [{guidance_method}] combination {i}"):
+        for _, row in images_info.iloc[:number_of_images].iterrows():
             if "FID" in score_list:
                 pipeline_model.guidance_method.reset()
                 generated_image_fid = generate_image(pipeline_model, row['caption'], row['height'], row['width'], num_inference_steps, guidance_scale)
