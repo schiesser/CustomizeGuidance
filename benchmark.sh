@@ -15,7 +15,7 @@ BLIP_MODEL_PATH="/home/schiesser/models/blip"
 SAVE_PATH="/home/schiesser"
 
 # images size / number
-NUM_IMAGES=10
+NUM_IMAGES=5000
 HEIGHT=1024
 WIDTH=1024
 
