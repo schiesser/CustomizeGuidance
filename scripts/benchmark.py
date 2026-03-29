@@ -1,11 +1,7 @@
 import argparse
 import json
-import sys
-import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
-from src.run import benchmark
+from customguidance import benchmark
 
 def str2bool(v):
     if isinstance(v, bool):

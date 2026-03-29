@@ -1,12 +1,7 @@
 import argparse
 import json
-import sys
-import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
-from src.run import run
-from src.plot import plot_image
+from customguidance import run
 
 inference_parser = argparse.ArgumentParser(description='T2I.')
 

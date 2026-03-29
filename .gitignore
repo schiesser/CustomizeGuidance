@@ -6,6 +6,7 @@
 DockerFile_template
 template.job
 Dockerfile
+*.egg-info/
 
 # User-specific files
 *.rsuser

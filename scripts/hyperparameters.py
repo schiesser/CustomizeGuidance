@@ -1,10 +1,6 @@
 import argparse
-import sys
-import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
-from src.run import hyperparameter_search
+from customguidance import hyperparameter_search
 
 
 def str2bool(v):
