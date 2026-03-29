@@ -9,7 +9,7 @@ from ..evaluation import compute_scores
 from ..error import *
 from .model import load_model, generate_image
 from .benchmark import compute_scores
-from configs.hyperparameters_grid import HYPERPARAMETER_GRID
+from ..configs.hyperparameters_grid import HYPERPARAMETER_GRID
 
 def hyperparameter_search(model: str, guidance_method: str, model_path: str,
                           data_annotations_path: str, data_images_path: str,

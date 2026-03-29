@@ -1,5 +1,6 @@
 import argparse
 import json
+from pathlib import Path
 
 from customguidance import run
 
@@ -29,7 +30,9 @@ image = run(
     guidance_scale=args.guidance_scale,
     guidance_params=args.guidance_parameters
     )
-image.save(args.output)
 
+output_dir = Path("generated_images")
+output_dir.mkdir(parents=True, exist_ok=True)
+image.save(f"generated_images/{args.output}")
 
 print(f"Image saved at: {args.output}.")
